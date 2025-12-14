@@ -10,9 +10,11 @@
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "prepare": "panda codegen"
   },
   "dependencies": {
+    "@ark-ui/solid": "^5.30.0",
     "@t3-oss/env-core": "^0.13.8",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/router-plugin": "^1.133.21",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",
+    "@pandacss/dev": "^1.7.1",
     "@tanstack/devtools-vite": "^0.3.11",
     "typescript": "^5.7.2",
     "vite": "^7.1.7",

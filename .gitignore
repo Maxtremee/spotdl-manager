@@ -7,3 +7,7 @@ dist-ssr
 .nitro
 .tanstack
 .wrangler
+
+## Panda
+styled-system
+styled-system-studio
