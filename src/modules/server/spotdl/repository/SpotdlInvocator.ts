@@ -18,7 +18,8 @@ export const RunRequestSchema = z.object({
 			syncWithoutDeleting: z.boolean().optional(),
 			extraArgs: z.array(z.string()).default([]).optional(),
 		})
-		.default({}),
+		.default({})
+		.optional(),
 	playlistId: z.string().optional(),
 });
 
@@ -60,12 +61,9 @@ export class SpotdlInvocator {
 		this.env = options?.env ?? process.env;
 	}
 
-	private buildArgs(
-		req: RunRequest,
-		syncFilePath?: string,
-	): string[] {
+	private buildArgs(req: RunRequest, syncFilePath?: string): string[] {
 		const args: string[] = [];
-		
+
 		if (syncFilePath) {
 			// sync mode: use existing sync file
 			args.push("sync", syncFilePath);
@@ -115,11 +113,11 @@ export class SpotdlInvocator {
 	): Promise<string> {
 		await this.ensureDir(this.syncDir);
 		const syncFilePath = this.getSyncFilePath(playlistId);
-		
+
 		// spotdl sync command with --save-file creates the sync file
 		const args = ["sync", req.sourceUrl, "--save-file", syncFilePath];
 		args.push("--output", req.outputDir);
-		
+
 		const { flags } = req;
 		if (flags?.format) args.push("--format", flags.format);
 		if (flags?.extraArgs?.length) args.push(...flags.extraArgs);
