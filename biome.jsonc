@@ -6,7 +6,16 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["./src/**/*", "!src/routeTree.gen.ts"]
+		"includes": [
+			"./src/**/*",
+			"!src/routeTree.gen.ts",
+			"package.json",
+			"biome.jsonc",
+			"panda.config.ts",
+			"postcss.config.cjs",
+			"tsconfig.json",
+			"vite.config.ts"
+		]
 	},
 	"formatter": {
 		"enabled": true,
