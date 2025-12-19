@@ -87,20 +87,6 @@ export default defineConfig({
 				},
 
 				shadows: shadows,
-
-				radii: {
-					l1: {
-						value: "{radii.none}",
-					},
-
-					l2: {
-						value: "{radii.none}",
-					},
-
-					l3: {
-						value: "{radii.none}",
-					},
-				},
 			},
 		},
 	},
