@@ -36,7 +36,9 @@ interface ItemIndicatorProps extends HTMLStyledProps<"span"> {
 const StyledItemIndicator = withContext("span", "itemIndicator");
 
 const cloneIcon = (icon: JSX.Element, type: string) => {
-	if (!icon) return null;
+	if (!icon) {
+		return null;
+	}
 	const props = {
 		[`data-${type}`]: "",
 		"aria-hidden": true,

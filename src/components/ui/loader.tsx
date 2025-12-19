@@ -44,7 +44,9 @@ export const Loader = (props: LoaderProps) => {
 	const spinnerPlacement = () => local.spinnerPlacement ?? "start";
 	const visible = () => local.visible ?? true;
 
-	if (!visible()) return local.children;
+	if (!visible()) {
+		return local.children;
+	}
 
 	if (local.text) {
 		return (

@@ -34,7 +34,9 @@ export interface MarksProps extends MarkerGroupProps {
 
 export const Marks = (props: MarksProps) => {
 	const [local, rest] = splitProps(props, ["marks"]);
-	if (!local.marks?.length) return null;
+	if (!local.marks?.length) {
+		return null;
+	}
 
 	return (
 		<MarkerGroup {...rest}>

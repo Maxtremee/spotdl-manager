@@ -234,7 +234,7 @@ describe("SpotdlInvocator", () => {
 				outputDir: path.join(tempDir, "downloads"),
 			};
 
-			const result = await invocator.run(request);
+			const _result = await invocator.run(request);
 
 			expect(fs.writeFile).toHaveBeenCalled();
 			const logContent = vi.mocked(fs.writeFile).mock.calls[0][1] as string;
@@ -251,7 +251,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -279,7 +281,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -310,7 +314,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -346,7 +352,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -376,7 +384,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -405,7 +415,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -438,7 +450,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};
@@ -465,7 +479,9 @@ describe("SpotdlInvocator", () => {
 				stdout: { on: vi.fn() },
 				stderr: { on: vi.fn() },
 				on: vi.fn((event, cb) => {
-					if (event === "close") cb();
+					if (event === "close") {
+						cb();
+					}
 				}),
 				exitCode: 0,
 			};

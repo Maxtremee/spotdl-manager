@@ -75,10 +75,18 @@ export class SpotdlInvocator {
 		args.push("--output", req.outputDir);
 
 		const { flags } = req;
-		if (flags?.format) args.push("--format", flags.format);
-		if (flags?.overwrite) args.push("--overwrite");
-		if (flags?.syncWithoutDeleting) args.push("--sync-without-deleting");
-		if (flags?.extraArgs?.length) args.push(...flags.extraArgs);
+		if (flags?.format) {
+			args.push("--format", flags.format);
+		}
+		if (flags?.overwrite) {
+			args.push("--overwrite");
+		}
+		if (flags?.syncWithoutDeleting) {
+			args.push("--sync-without-deleting");
+		}
+		if (flags?.extraArgs?.length) {
+			args.push(...flags.extraArgs);
+		}
 		return args;
 	}
 
@@ -119,8 +127,12 @@ export class SpotdlInvocator {
 		args.push("--output", req.outputDir);
 
 		const { flags } = req;
-		if (flags?.format) args.push("--format", flags.format);
-		if (flags?.extraArgs?.length) args.push(...flags.extraArgs);
+		if (flags?.format) {
+			args.push("--format", flags.format);
+		}
+		if (flags?.extraArgs?.length) {
+			args.push(...flags.extraArgs);
+		}
 
 		const child = spawn(this.binaryPath, args, {
 			stdio: ["ignore", "pipe", "pipe"],
