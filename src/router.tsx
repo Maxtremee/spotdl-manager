@@ -9,6 +9,7 @@ export const getRouter = () => {
 		routeTree,
 		scrollRestoration: true,
 		defaultErrorComponent: GenericError,
+		defaultViewTransition: true,
 	});
 	return router;
 };
