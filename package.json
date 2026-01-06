@@ -22,6 +22,9 @@
 		"@tanstack/solid-router": "^1.133.20",
 		"@tanstack/solid-router-devtools": "^1.133.20",
 		"@tanstack/solid-start": "^1.132.25",
+		"better-sqlite3": "^12.5.0",
+		"drizzle-kit": "^0.31.8",
+		"drizzle-orm": "^0.45.1",
 		"lucide-solid": "^0.544.0",
 		"nitro": "latest",
 		"solid-js": "^1.9.9",
@@ -35,6 +38,7 @@
 		"@pandacss/dev": "^1.7.1",
 		"@pandacss/studio": "^1.7.1",
 		"@tanstack/devtools-vite": "^0.3.11",
+		"@types/better-sqlite3": "^7.6.13",
 		"typescript": "^5.7.2",
 		"vite": "^7.1.7",
 		"vite-plugin-solid": "^2.11.10"
