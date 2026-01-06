@@ -1,5 +1,3 @@
-import path from "node:path";
-import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
 
@@ -11,9 +9,8 @@ let db: ReturnType<typeof drizzle> | null = null;
  */
 export function getDb() {
 	if (!db) {
-		const dbPath = path.join(process.cwd(), "data", "spotdl.db");
-		const sqlite = new Database(dbPath);
-		db = drizzle(sqlite, { schema });
+		// biome-ignore lint/style/noNonNullAssertion: env
+		db = drizzle(process.env.DB_FILE_NAME!, { schema });
 	}
 	return db;
 }
