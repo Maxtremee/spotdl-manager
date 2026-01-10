@@ -1,4 +1,3 @@
-import { createListCollection } from "@ark-ui/solid";
 import { createFileRoute } from "@tanstack/solid-router";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { For, Show, Suspense } from "solid-js";
@@ -8,30 +7,16 @@ import { z } from "zod";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
-import * as Fieldset from "~/components/ui/fieldset";
-import { Input } from "~/components/ui/input";
-import { InputGroup } from "~/components/ui/input-group";
 import type { RootProps as PaginationRootProps } from "~/components/ui/pagination";
 import * as Pagination from "~/components/ui/pagination";
-import type { ValueChangeDetails } from "~/components/ui/select";
-import * as Select from "~/components/ui/select";
 import * as Table from "~/components/ui/table";
 import { Text } from "~/components/ui/text";
-import type { Playlist } from "~/modules/client/playlist/schema/playlist";
+import {
+	LibraryFilters,
+	type LibraryFiltersValue,
+} from "~/modules/client/library/components/library-filters";
 import { PlaylistService } from "~/modules/client/playlist/service/playlist";
 import { listPlaylistsServerFn } from "~/modules/server/playlist/functions";
-
-const statusOptions = createListCollection<{
-	label: string;
-	value: Playlist["status"];
-}>({
-	items: [
-		{ label: "Active", value: "active" },
-		{ label: "Paused", value: "paused" },
-		{ label: "Archived", value: "archived" },
-		{ label: "Error", value: "error" },
-	],
-});
 
 // Define search params schema with Zod
 const playlistSearchSchema = z.object({
@@ -63,14 +48,13 @@ function Library() {
 	const search = Route.useSearch();
 	const playlists = Route.useLoaderData();
 
-	// Handlers
-	const handleSearch = (e: Event) => {
-		e.preventDefault();
+	const handleFilterSubmit = (value: LibraryFiltersValue) => {
 		navigate({
 			search: (prev) => ({
 				...prev,
 				page: 1,
-				search: search().search,
+				search: value.search,
+				status: value.status,
 			}),
 		});
 	};
@@ -83,26 +67,6 @@ function Library() {
 			}),
 		});
 		window.scrollTo({ top: 0, behavior: "smooth" });
-	};
-
-	const handleStatusChange = (value: string | undefined) => {
-		navigate({
-			search: (prev) => ({
-				...prev,
-				status: value as Playlist["status"] | undefined,
-				page: 1,
-			}),
-		});
-	};
-
-	const handleSearchInput = (value: string) => {
-		navigate({
-			search: (prev) => ({
-				...prev,
-				search: value,
-				page: 1,
-			}),
-		});
 	};
 
 	return (
@@ -123,84 +87,11 @@ function Library() {
 				</Text>
 			</header>
 
-			{/* Filters Card (moved from playlists) */}
-			<Card.Root class={css({ mb: "6" })}>
-				<Card.Header>
-					<Card.Title>Filters and search</Card.Title>
-				</Card.Header>
-				<Card.Body>
-					<div class={hstack({ gap: "4", flexWrap: "wrap" })}>
-						{/* Search input */}
-						<Fieldset.Root class={css({ flex: 1, minW: "250px" })}>
-							<Fieldset.Legend
-								class={css({ fontSize: "sm", fontWeight: "500" })}
-							>
-								Search
-							</Fieldset.Legend>
-							<InputGroup>
-								<Input
-									type="text"
-									placeholder="Search playlist..."
-									value={search().search}
-									onChange={(e) => handleSearchInput(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											handleSearch(e);
-										}
-									}}
-								/>
-							</InputGroup>
-						</Fieldset.Root>
-
-						{/* Status filter */}
-						<Fieldset.Root class={css({ flex: 1, minW: "200px" })}>
-							<Fieldset.Legend
-								class={css({ fontSize: "sm", fontWeight: "500" })}
-							>
-								Status
-							</Fieldset.Legend>
-							<Select.Root
-								collection={statusOptions}
-								value={search().status ? [search().status ?? ""] : []}
-								onValueChange={(details) => {
-									handleStatusChange(details.value?.[0]);
-								}}
-							>
-								<Select.Control>
-									<Select.Trigger>
-										<Select.ValueText placeholder="All statuses" />
-										<Select.Indicator />
-									</Select.Trigger>
-								</Select.Control>
-								<Select.Positioner>
-									<Select.Content>
-										<Select.List>
-											<For each={statusOptions.items}>
-												{(option) => (
-													<Select.Item item={option}>
-														<Select.ItemText>{option.label}</Select.ItemText>
-													</Select.Item>
-												)}
-											</For>
-										</Select.List>
-									</Select.Content>
-								</Select.Positioner>
-							</Select.Root>
-						</Fieldset.Root>
-
-						{/* Action button */}
-						<div class={hstack({ gap: "2", alignSelf: "flex-end" })}>
-							<Button
-								onClick={handleSearch}
-								variant="solid"
-								class={css({ mt: "auto" })}
-							>
-								Search
-							</Button>
-						</div>
-					</div>
-				</Card.Body>
-			</Card.Root>
+			<LibraryFilters
+				defaultSearch={search().search}
+				defaultStatus={search().status}
+				onSubmit={handleFilterSubmit}
+			/>
 
 			{/* Main Content */}
 			<Card.Root>
