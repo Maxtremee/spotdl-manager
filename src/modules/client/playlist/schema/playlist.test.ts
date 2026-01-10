@@ -151,7 +151,16 @@ describe("PlaylistSchema", () => {
 					name: "Test",
 					source: { type: "playlist", url: "https://example.com" },
 					outputDir: "/downloads",
-					flags: { format: format as "mp3" | "flac" | "ogg" | "m4a" | "opus" | "vorbis" | "wav" },
+					flags: {
+						format: format as
+							| "mp3"
+							| "flac"
+							| "ogg"
+							| "m4a"
+							| "opus"
+							| "vorbis"
+							| "wav",
+					},
 				});
 				expect(result.flags?.format).toBe(format);
 			});
@@ -171,7 +180,15 @@ describe("PlaylistSchema", () => {
 					name: "Test",
 					source: { type: "playlist", url: "https://example.com" },
 					outputDir: "/downloads",
-					flags: { quality: quality as "worst" | "low" | "medium" | "high" | "very_high" | "lossless" },
+					flags: {
+						quality: quality as
+							| "worst"
+							| "low"
+							| "medium"
+							| "high"
+							| "very_high"
+							| "lossless",
+					},
 				});
 				expect(result.flags?.quality).toBe(quality);
 			});

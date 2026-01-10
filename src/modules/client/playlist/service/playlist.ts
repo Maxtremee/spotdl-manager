@@ -101,9 +101,12 @@ export const PlaylistService = {
 	 * Get status badge color variant
 	 */
 	getStatusVariant(
-		status: Playlist["status"]
+		status: Playlist["status"],
 	): "default" | "success" | "warning" | "error" {
-		const variants: Record<Playlist["status"], "default" | "success" | "warning" | "error"> = {
+		const variants: Record<
+			Playlist["status"],
+			"default" | "success" | "warning" | "error"
+		> = {
 			active: "success",
 			paused: "warning",
 			archived: "default",
@@ -116,7 +119,7 @@ export const PlaylistService = {
 	 * Format source type for display
 	 */
 	formatSourceType(
-		type: Playlist["source"]["type"]
+		type: Playlist["source"]["type"],
 	): "Playlist" | "Album" | "Track" {
 		const labels = {
 			playlist: "Playlist",

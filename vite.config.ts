@@ -8,7 +8,9 @@ import viteTsConfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
 	plugins: [
 		devtools(),
-		nitro(),
+		nitro({
+			plugins: ["server/plugins/scheduler.ts"],
+		}),
 		// this is the plugin that enables path aliases
 		viteTsConfigPaths({
 			projects: ["./tsconfig.json"],
