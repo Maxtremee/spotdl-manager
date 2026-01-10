@@ -94,9 +94,25 @@ export class SpotdlInvocator {
 		await fs.mkdir(dir, { recursive: true });
 	}
 
-	private async writeLog(runId: string, content: string): Promise<string> {
+	private formatTimestamp(date: Date): string {
+		return date
+			.toISOString()
+			.replace(/[:.]/g, "-")
+			.replace("T", "_")
+			.replace("Z", "");
+	}
+
+	private async writeLog(
+		content: string,
+		playlistId?: string,
+		startedAt?: Date,
+	): Promise<string> {
 		await this.ensureDir(this.logsDir);
-		const logPath = path.join(this.logsDir, `${runId}.log`);
+		const timestamp = this.formatTimestamp(startedAt ?? new Date());
+		const filename = playlistId
+			? `${playlistId}-${timestamp}.txt`
+			: `${timestamp}.txt`;
+		const logPath = path.join(this.logsDir, filename);
 		await fs.writeFile(logPath, content, "utf8");
 		return logPath;
 	}
@@ -144,7 +160,8 @@ export class SpotdlInvocator {
 	}
 
 	async run(input: RunRequest): Promise<RunResult> {
-		const startedAt = new Date().toISOString();
+		const startedAtDate = new Date();
+		const startedAt = startedAtDate.toISOString();
 		const runId = randomUUID();
 
 		// Handle sync file
@@ -197,7 +214,11 @@ export class SpotdlInvocator {
 			stderrBuf,
 		].join("\n");
 
-		const logPath = await this.writeLog(runId, combinedLog);
+		const logPath = await this.writeLog(
+			combinedLog,
+			input.playlistId,
+			startedAtDate,
+		);
 		const status: "success" | "failed" | "canceled" =
 			exitCode === 0 ? "success" : "failed";
 		const summary = stdoutBuf.split("\n").slice(-10).join("\n");

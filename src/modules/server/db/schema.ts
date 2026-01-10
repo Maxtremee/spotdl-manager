@@ -56,3 +56,28 @@ export const playlists = sqliteTable("playlists", {
 
 export type PlaylistRow = typeof playlists.$inferSelect;
 export type NewPlaylistRow = typeof playlists.$inferInsert;
+
+/**
+ * Invocations table schema
+ * Tracks each spotdl execution for a playlist
+ */
+export const invocations = sqliteTable("invocations", {
+	id: text("id").primaryKey().notNull(),
+	playlistId: text("playlist_id")
+		.notNull()
+		.references(() => playlists.id, { onDelete: "cascade" }),
+	startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+	finishedAt: integer("finished_at", { mode: "timestamp" }),
+	exitCode: integer("exit_code"),
+	status: text("status", {
+		enum: ["running", "success", "failed", "canceled"],
+	})
+		.default("running")
+		.notNull(),
+	logPath: text("log_path"),
+	syncFilePath: text("sync_file_path"),
+	summary: text("summary"),
+});
+
+export type InvocationRow = typeof invocations.$inferSelect;
+export type NewInvocationRow = typeof invocations.$inferInsert;
