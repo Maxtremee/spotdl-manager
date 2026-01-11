@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/solid-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { For, Show, Suspense } from "solid-js";
+import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { hstack, stack, vstack } from "styled-system/patterns";
 import { z } from "zod";
@@ -112,148 +112,136 @@ function Library() {
 				</Card.Header>
 
 				<Card.Body class={css({ overflow: "auto" })}>
-					<Suspense
+					<Show
+						when={playlists() && playlists().items.length > 0}
 						fallback={
-							<div class={vstack({ gap: "4", py: "8", alignItems: "center" })}>
-								<Text class={css({ color: "fg.muted" })}>
-									Loading playlists...
+							<div class={vstack({ gap: "2", py: "8", alignItems: "center" })}>
+								<Text
+									as="h3"
+									class={css({
+										fontSize: "lg",
+										fontWeight: "semibold",
+										color: "fg.default",
+									})}
+								>
+									No playlists
 								</Text>
+								<Text
+									class={css({
+										color: "fg.muted",
+										maxW: "md",
+										textAlign: "center",
+									})}
+								>
+									No playlists found. Create a new playlist to start downloading
+									songs from Spotify.
+								</Text>
+								<Link to="/library/add">
+									<Button variant="solid" class={css({ mt: "4" })}>
+										+ Add playlist
+									</Button>
+								</Link>
 							</div>
 						}
 					>
-						<Show
-							when={playlists() && playlists().items.length > 0}
-							fallback={
-								<div
-									class={vstack({ gap: "2", py: "8", alignItems: "center" })}
-								>
-									<Text
-										as="h3"
-										class={css({
-											fontSize: "lg",
-											fontWeight: "semibold",
-											color: "fg.default",
-										})}
-									>
-										No playlists
-									</Text>
-									<Text
-										class={css({
-											color: "fg.muted",
-											maxW: "md",
-											textAlign: "center",
-										})}
-									>
-										No playlists found. Create a new playlist to start
-										downloading songs from Spotify.
-									</Text>
-									<Link to="/library/add">
-										<Button variant="solid" class={css({ mt: "4" })}>
-											+ Add playlist
-										</Button>
-									</Link>
-								</div>
-							}
-						>
-							<Table.Root class={css({ w: "full" })}>
-								<Table.Head>
-									<Table.Row>
-										<Table.Header class={css({ fontWeight: "semibold" })}>
-											Name
-										</Table.Header>
-										<Table.Header class={css({ fontWeight: "semibold" })}>
-											Type
-										</Table.Header>
-										<Table.Header class={css({ fontWeight: "semibold" })}>
-											Status
-										</Table.Header>
-										<Table.Header class={css({ fontWeight: "semibold" })}>
-											Output
-										</Table.Header>
-										<Table.Header class={css({ fontWeight: "semibold" })}>
-											Updated
-										</Table.Header>
-										<Table.Header class={css({ fontWeight: "semibold" })}>
-											Actions
-										</Table.Header>
-									</Table.Row>
-								</Table.Head>
-								<Table.Body>
-									<For each={playlists().items || []}>
-										{(playlist) => (
-											<Table.Row
-												class={css({
-													"&:hover": { bgColor: "bg.muted" },
-													transition: "colors 200ms",
-												})}
+						<Table.Root class={css({ w: "full" })}>
+							<Table.Head>
+								<Table.Row>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Name
+									</Table.Header>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Type
+									</Table.Header>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Status
+									</Table.Header>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Output
+									</Table.Header>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Updated
+									</Table.Header>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Actions
+									</Table.Header>
+								</Table.Row>
+							</Table.Head>
+							<Table.Body>
+								<For each={playlists().items || []}>
+									{(playlist) => (
+										<Table.Row
+											class={css({
+												"&:hover": { bgColor: "bg.muted" },
+												transition: "colors 200ms",
+											})}
+										>
+											<Table.Cell class={css({ fontWeight: "500" })}>
+												<Link
+													to="/library/$playlistId"
+													params={{ playlistId: playlist.id ?? "" }}
+													class={css({
+														color: "fg.default",
+														textDecoration: "none",
+														"&:hover": { textDecoration: "underline" },
+													})}
+												>
+													{PlaylistService.truncateText(playlist.name, 40)}
+												</Link>
+											</Table.Cell>
+											<Table.Cell>
+												<Badge>
+													{PlaylistService.formatSourceType(
+														playlist.source.type,
+													)}
+												</Badge>
+											</Table.Cell>
+											<Table.Cell>
+												<Badge>
+													{PlaylistService.formatStatus(playlist.status)}
+												</Badge>
+											</Table.Cell>
+											<Table.Cell
+												class={css({ fontSize: "sm", color: "fg.muted" })}
 											>
-												<Table.Cell class={css({ fontWeight: "500" })}>
+												{PlaylistService.truncateText(playlist.outputDir, 30)}
+											</Table.Cell>
+											<Table.Cell
+												class={css({ fontSize: "sm", color: "fg.muted" })}
+											>
+												{playlist.updatedAt
+													? PlaylistService.formatDate(playlist.updatedAt)
+													: "N/A"}
+											</Table.Cell>
+											<Table.Cell>
+												<div class={hstack({ gap: "2" })}>
 													<Link
 														to="/library/$playlistId"
 														params={{ playlistId: playlist.id ?? "" }}
-														class={css({
-															color: "fg.default",
-															textDecoration: "none",
-															"&:hover": { textDecoration: "underline" },
-														})}
 													>
-														{PlaylistService.truncateText(playlist.name, 40)}
-													</Link>
-												</Table.Cell>
-												<Table.Cell>
-													<Badge>
-														{PlaylistService.formatSourceType(
-															playlist.source.type,
-														)}
-													</Badge>
-												</Table.Cell>
-												<Table.Cell>
-													<Badge>
-														{PlaylistService.formatStatus(playlist.status)}
-													</Badge>
-												</Table.Cell>
-												<Table.Cell
-													class={css({ fontSize: "sm", color: "fg.muted" })}
-												>
-													{PlaylistService.truncateText(playlist.outputDir, 30)}
-												</Table.Cell>
-												<Table.Cell
-													class={css({ fontSize: "sm", color: "fg.muted" })}
-												>
-													{playlist.updatedAt
-														? PlaylistService.formatDate(playlist.updatedAt)
-														: "N/A"}
-												</Table.Cell>
-												<Table.Cell>
-													<div class={hstack({ gap: "2" })}>
-														<Link
-															to="/library/$playlistId"
-															params={{ playlistId: playlist.id ?? "" }}
-														>
-															<Button
-																size="sm"
-																variant="outline"
-																class={css({ fontSize: "xs" })}
-															>
-																View
-															</Button>
-														</Link>
 														<Button
 															size="sm"
 															variant="outline"
 															class={css({ fontSize: "xs" })}
 														>
-															Delete
+															View
 														</Button>
-													</div>
-												</Table.Cell>
-											</Table.Row>
-										)}
-									</For>
-								</Table.Body>
-							</Table.Root>
-						</Show>
-					</Suspense>
+													</Link>
+													<Button
+														size="sm"
+														variant="outline"
+														class={css({ fontSize: "xs" })}
+													>
+														Delete
+													</Button>
+												</div>
+											</Table.Cell>
+										</Table.Row>
+									)}
+								</For>
+							</Table.Body>
+						</Table.Root>
+					</Show>
 				</Card.Body>
 
 				{/* Pagination */}
