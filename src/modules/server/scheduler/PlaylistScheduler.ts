@@ -3,6 +3,7 @@ import { Cron } from "croner";
 import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import type { PlaylistRow } from "../db/schema";
+import { getEventBus } from "../events";
 import { InvocationRepository } from "../invocation/repository";
 import { SpotdlInvocator } from "../spotdl/SpotdlInvocator";
 
@@ -79,6 +80,20 @@ export class PlaylistScheduler {
 			`[Scheduler] Starting scheduled sync for playlist "${playlist.name}" (${playlist.id})`,
 		);
 
+		const eventBus = getEventBus();
+
+		// Emit sync started event
+		await eventBus.emit({
+			type: "playlist.sync.started",
+			payload: {
+				playlistId: playlist.id,
+				playlistName: playlist.name,
+				invocationId,
+				sourceUrl: playlist.sourceUrl,
+				outputDir: playlist.outputDir,
+			},
+		});
+
 		try {
 			createPromise = InvocationRepository.create({
 				id: invocationId,
@@ -108,9 +123,51 @@ export class PlaylistScheduler {
 				summary: result.summary,
 			});
 
+			const finishedAtMs = new Date(result.finishedAt).getTime();
+			const duration = finishedAtMs - startedAt.getTime();
+
 			console.log(
 				`[Scheduler] Completed sync for playlist "${playlist.name}" (${playlist.id}) with status: ${result.status}`,
 			);
+
+			if (result.status === "success") {
+				// Emit appropriate completion event based on status
+				await eventBus.emit({
+					type: "playlist.sync.completed",
+					payload: {
+						playlistId: playlist.id,
+						playlistName: playlist.name,
+						invocationId,
+						duration,
+						exitCode: result.exitCode ?? 0,
+						summary: result.summary,
+						logPath: result.logPath,
+						syncFilePath: result.syncFilePath,
+					},
+				});
+			} else if (result.status === "failed") {
+				await eventBus.emit({
+					type: "playlist.sync.failed",
+					payload: {
+						playlistId: playlist.id,
+						playlistName: playlist.name,
+						invocationId,
+						error: result.summary || "Unknown error",
+						exitCode: result.exitCode ?? undefined,
+						logPath: result.logPath,
+					},
+				});
+			} else if (result.status === "canceled") {
+				await eventBus.emit({
+					type: "playlist.sync.canceled",
+					payload: {
+						playlistId: playlist.id,
+						playlistName: playlist.name,
+						invocationId,
+						reason: result.summary,
+					},
+				});
+			}
 		} catch (error) {
 			console.error(
 				`[Scheduler] Error syncing playlist "${playlist.name}" (${playlist.id}):`,
@@ -127,6 +184,18 @@ export class PlaylistScheduler {
 				exitCode: -1,
 				status: "failed",
 				summary: error instanceof Error ? error.message : "Unknown error",
+			});
+
+			// Emit failure event
+			await eventBus.emit({
+				type: "playlist.sync.failed",
+				payload: {
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					invocationId,
+					error: error instanceof Error ? error.message : "Unknown error",
+					exitCode: -1,
+				},
 			});
 		} finally {
 			this.runningPlaylists.delete(playlist.id);
