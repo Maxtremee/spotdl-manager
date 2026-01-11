@@ -43,6 +43,7 @@ export const Indicator = withContext(Select.Indicator, "indicator", {
 export const HiddenSelect = Select.HiddenSelect;
 
 export {
+	createListCollection,
 	SelectContext as Context,
 	SelectItemContext as ItemContext,
 	type SelectValueChangeDetails as ValueChangeDetails,

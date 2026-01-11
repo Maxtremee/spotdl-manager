@@ -1,6 +1,9 @@
 import { and, count, eq, like, type SQL } from "drizzle-orm";
 import type { Playlist } from "~/modules/client/playlist/schema/playlist";
-import { rowToPlaylist } from "~/modules/client/playlist/utils/mapper";
+import {
+	playlistToRow,
+	rowToPlaylist,
+} from "~/modules/client/playlist/utils/mapper";
 import { getDb, schema } from "../db";
 
 export type PaginationParams = {
@@ -110,5 +113,62 @@ export const PlaylistRepository = {
 			.groupBy(schema.playlists.status);
 
 		return result;
+	},
+
+	/**
+	 * Create a new playlist
+	 */
+	async createPlaylist(playlist: Playlist) {
+		const db = getDb();
+		const row = playlistToRow(playlist);
+
+		await db.insert(schema.playlists).values(row);
+
+		// Query back the inserted row to ensure correct types
+		const [insertedRow] = await db
+			.select()
+			.from(schema.playlists)
+			.where(eq(schema.playlists.id, row.id));
+
+		return rowToPlaylist(insertedRow);
+	},
+
+	/**
+	 * Update an existing playlist
+	 */
+	async updatePlaylist(id: string, updates: Partial<Playlist>) {
+		const db = getDb();
+		const existing = await this.getPlaylistById(id);
+
+		if (!existing) {
+			throw new Error(`Playlist with id ${id} not found`);
+		}
+
+		const updated = { ...existing, ...updates };
+		const row = playlistToRow(updated);
+
+		await db
+			.update(schema.playlists)
+			.set(row)
+			.where(eq(schema.playlists.id, id));
+
+		// Query back the updated row to ensure correct types
+		const [updatedRow] = await db
+			.select()
+			.from(schema.playlists)
+			.where(eq(schema.playlists.id, id));
+
+		return rowToPlaylist(updatedRow);
+	},
+
+	/**
+	 * Delete a playlist by ID
+	 */
+	async deletePlaylist(id: string) {
+		const db = getDb();
+
+		await db.delete(schema.playlists).where(eq(schema.playlists.id, id));
+
+		return true;
 	},
 };

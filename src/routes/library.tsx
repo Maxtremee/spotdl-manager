@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/solid-router";
-import { zodValidator } from "@tanstack/zod-adapter";
+import { createFileRoute, Link } from "@tanstack/solid-router";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { For, Show, Suspense } from "solid-js";
 import { css } from "styled-system/css";
 import { hstack, stack, vstack } from "styled-system/patterns";
@@ -20,12 +20,12 @@ import { listPlaylistsServerFn } from "~/modules/server/playlist/functions";
 
 // Define search params schema with Zod
 const playlistSearchSchema = z.object({
-	page: z.number().int().positive().catch(1),
-	search: z.string().catch(""),
-	status: z
-		.enum(["active", "paused", "archived", "error"])
-		.optional()
-		.catch(undefined),
+	page: fallback(z.int().positive(), 1).default(1),
+	search: fallback(z.string(), "").default(""),
+	status: fallback(
+		z.enum(["active", "paused", "archived", "error"]).optional(),
+		undefined,
+	).default(undefined),
 });
 
 export const Route = createFileRoute("/library")({
@@ -105,7 +105,9 @@ function Library() {
 								Page {search().page} of {playlists().pagination.pages || 0}
 							</Text>
 						</div>
-						<Button variant="solid">+ New playlist</Button>
+						<Link to="/library/add">
+							<Button variant="solid">+ New playlist</Button>
+						</Link>
 					</div>
 				</Card.Header>
 
@@ -145,9 +147,11 @@ function Library() {
 										No playlists found. Create a new playlist to start
 										downloading songs from Spotify.
 									</Text>
-									<Button variant="solid" class={css({ mt: "4" })}>
-										+ Add playlist
-									</Button>
+									<Link to="/library/add">
+										<Button variant="solid" class={css({ mt: "4" })}>
+											+ Add playlist
+										</Button>
+									</Link>
 								</div>
 							}
 						>

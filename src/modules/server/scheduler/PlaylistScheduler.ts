@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "../db";
 import type { PlaylistRow } from "../db/schema";
 import { InvocationRepository } from "../invocation/repository";
-import { SpotdlInvocator } from "../spotdl/repository/SpotdlInvocator";
+import { SpotdlInvocator } from "../spotdl/SpotdlInvocator";
 
 /**
  * Manages scheduled playlist sync jobs using croner.
