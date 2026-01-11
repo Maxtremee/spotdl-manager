@@ -9,7 +9,7 @@ export default defineConfig({
 	plugins: [
 		devtools(),
 		nitro({
-			plugins: ["server/plugins/scheduler.ts", "server/plugins/events.ts"],
+			plugins: ["server/plugins/events.ts", "server/plugins/scheduler.ts"],
 		}),
 		// this is the plugin that enables path aliases
 		viteTsConfigPaths({
