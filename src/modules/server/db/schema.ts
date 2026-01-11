@@ -81,3 +81,18 @@ export const invocations = sqliteTable("invocations", {
 
 export type InvocationRow = typeof invocations.$inferSelect;
 export type NewInvocationRow = typeof invocations.$inferInsert;
+
+/**
+ * Global settings table schema
+ * Key-value store for application-wide configuration
+ */
+export const globalSettings = sqliteTable("global_settings", {
+	key: text("key").primaryKey().notNull(),
+	value: text("value").notNull(),
+	updatedAt: integer("updated_at", { mode: "timestamp" })
+		.notNull()
+		.default(sql`(unixepoch())`),
+});
+
+export type GlobalSettingRow = typeof globalSettings.$inferSelect;
+export type NewGlobalSettingRow = typeof globalSettings.$inferInsert;
