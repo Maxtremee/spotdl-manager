@@ -1,3 +1,5 @@
+import type { AppLogger } from "../../../logger";
+import { Logger } from "../../../logger";
 import { getEventBus } from "./EventBus";
 import type {
 	PlaylistSyncCompletedEvent,
@@ -13,21 +15,24 @@ import type {
 /**
  * Log all events to console for debugging
  */
-export function registerLoggingHandler(): () => void {
+export function registerLoggingHandler(
+	logger: AppLogger = Logger.get("EventHandlers"),
+): () => void {
 	const bus = getEventBus();
 	return bus.onAny((event) => {
-		console.log(`[EventBus] ${event.type}:`, {
-			id: event.id,
-			timestamp: event.timestamp,
-			payload: event.payload,
-		});
+		logger.debug(
+			{ id: event.id, payload: event.payload, timestamp: event.timestamp },
+			`Event ${event.type}`,
+		);
 	});
 }
 
 /**
  * Track sync metrics and statistics
  */
-export function registerMetricsHandler(): () => void {
+export function registerMetricsHandler(
+	logger: AppLogger = Logger.get("EventHandlers"),
+): () => void {
 	const bus = getEventBus();
 	const metrics = {
 		totalSyncs: 0,
@@ -43,14 +48,17 @@ export function registerMetricsHandler(): () => void {
 			metrics.successfulSyncs++;
 			metrics.totalDuration += event.payload.duration;
 
-			console.log("[Metrics] Sync stats:", {
-				total: metrics.totalSyncs,
-				successRate: (
-					(metrics.successfulSyncs / metrics.totalSyncs) *
-					100
-				).toFixed(2),
-				avgDuration: (metrics.totalDuration / metrics.totalSyncs).toFixed(2),
-			});
+			logger.info(
+				{
+					total: metrics.totalSyncs,
+					successRate: (
+						(metrics.successfulSyncs / metrics.totalSyncs) *
+						100
+					).toFixed(2),
+					avgDuration: (metrics.totalDuration / metrics.totalSyncs).toFixed(2),
+				},
+				"Sync stats",
+			);
 		},
 	);
 
@@ -60,15 +68,18 @@ export function registerMetricsHandler(): () => void {
 			metrics.totalSyncs++;
 			metrics.failedSyncs++;
 
-			console.log("[Metrics] Sync failed:", {
-				playlist: event.payload.playlistName,
-				error: event.payload.error,
-				total: metrics.totalSyncs,
-				successRate: (
-					(metrics.successfulSyncs / metrics.totalSyncs) *
-					100
-				).toFixed(2),
-			});
+			logger.warn(
+				{
+					playlist: event.payload.playlistName,
+					error: event.payload.error,
+					total: metrics.totalSyncs,
+					successRate: (
+						(metrics.successfulSyncs / metrics.totalSyncs) *
+						100
+					).toFixed(2),
+				},
+				"Sync failed",
+			);
 		},
 	);
 
@@ -84,6 +95,7 @@ export function registerMetricsHandler(): () => void {
  */
 export function registerFailureNotificationHandler(
 	notifyFn: (playlistName: string, error: string) => Promise<void>,
+	logger: AppLogger = Logger.get("EventHandlers"),
 ): () => void {
 	const bus = getEventBus();
 	return bus.on(
@@ -92,10 +104,7 @@ export function registerFailureNotificationHandler(
 			try {
 				await notifyFn(event.payload.playlistName, event.payload.error);
 			} catch (notifyError) {
-				console.error(
-					"[FailureNotification] Failed to send notification:",
-					notifyError,
-				);
+				logger.error({ err: notifyError }, "Failed to send notification");
 			}
 		},
 	);
@@ -106,26 +115,27 @@ export function registerFailureNotificationHandler(
  */
 export function registerSchedulerReloadHandler(
 	reloadFn: () => Promise<void>,
+	logger: AppLogger = Logger.get("EventHandlers"),
 ): () => void {
 	const bus = getEventBus();
 
 	const unsubscribeCreated = bus.on("playlist.created", async () => {
-		console.log("[SchedulerReload] Playlist created, reloading scheduler");
+		logger.info("Playlist created, reloading scheduler");
 		await reloadFn();
 	});
 
 	const unsubscribeUpdated = bus.on("playlist.updated", async () => {
-		console.log("[SchedulerReload] Playlist updated, reloading scheduler");
+		logger.info("Playlist updated, reloading scheduler");
 		await reloadFn();
 	});
 
 	const unsubscribeDeleted = bus.on("playlist.deleted", async () => {
-		console.log("[SchedulerReload] Playlist deleted, reloading scheduler");
+		logger.info("Playlist deleted, reloading scheduler");
 		await reloadFn();
 	});
 
 	const unsubscribeReload = bus.on("scheduler.reload", async () => {
-		console.log("[SchedulerReload] Explicit reload requested");
+		logger.info("Explicit reload requested");
 		await reloadFn();
 	});
 
@@ -143,6 +153,7 @@ export function registerSchedulerReloadHandler(
  */
 export function registerSyncDurationWarningHandler(
 	thresholdMs: number = 300000, // 5 minutes default
+	logger: AppLogger = Logger.get("EventHandlers"),
 ): () => void {
 	const bus = getEventBus();
 	const startTimes = new Map<string, number>();
@@ -160,8 +171,12 @@ export function registerSyncDurationWarningHandler(
 			startTimes.delete(event.payload.invocationId);
 
 			if (event.payload.duration > thresholdMs) {
-				console.warn(
-					`[SyncDuration] Long-running sync detected for playlist "${event.payload.playlistName}": ${(event.payload.duration / 1000).toFixed(2)}s`,
+				logger.warn(
+					{
+						playlistName: event.payload.playlistName,
+						durationMs: event.payload.duration,
+					},
+					"Long-running sync detected",
 				);
 			}
 		},
@@ -188,6 +203,7 @@ export function registerSyncDurationWarningHandler(
 export function registerLogCleanupHandler(
 	cleanupFn: (logPath: string) => Promise<void>,
 	retentionCount = 5,
+	logger: AppLogger = Logger.get("EventHandlers"),
 ): () => void {
 	const bus = getEventBus();
 	const playlistLogs = new Map<string, string[]>();
@@ -219,11 +235,11 @@ export function registerLogCleanupHandler(
 				for (const oldLog of oldLogs) {
 					try {
 						await cleanupFn(oldLog);
-						console.log(`[LogCleanup] Deleted old log: ${oldLog}`);
+						logger.info({ logPath: oldLog }, "Deleted old log");
 					} catch (error) {
-						console.error(
-							`[LogCleanup] Failed to delete log ${oldLog}:`,
-							error,
+						logger.error(
+							{ err: error, logPath: oldLog },
+							"Failed to delete log",
 						);
 					}
 				}

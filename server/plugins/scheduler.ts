@@ -1,5 +1,6 @@
 import type { NitroApp } from "nitro/types";
 import { getScheduler } from "../../src/modules/server/scheduler/PlaylistScheduler";
+import { Logger } from "../../src/logger";
 
 let initialized = false;
 
@@ -8,14 +9,19 @@ let initialized = false;
  * Reads all playlists with scheduling enabled and registers cron jobs.
  */
 export default (nitroApp: NitroApp) => {
-	const scheduler = getScheduler();
+	const pluginLogger = Logger.get("SchedulerPlugin");
+	const schedulerLogger = Logger.get("PlaylistScheduler");
+	const scheduler = getScheduler(schedulerLogger);
 
 	// Initialize scheduler asynchronously after plugin loads
 	// This runs once when the server starts
 	if (!initialized) {
 		initialized = true;
 		scheduler.initialize().catch((error) => {
-			console.error("[Scheduler Plugin] Failed to initialize scheduler:", error);
+			pluginLogger.error(
+				{ err: error },
+				"Failed to initialize scheduler",
+			);
 		});
 	}
 

@@ -209,7 +209,7 @@ function PlaylistDetails() {
 		};
 		return labels[status];
 	};
-	
+
 	const formatDuration = (startedAt: Date, finishedAt: Date | null): string => {
 		if (!finishedAt) {
 			return "In progress...";

@@ -7,6 +7,7 @@ import {
 	registerSchedulerReloadHandler,
 	registerSyncDurationWarningHandler,
 } from "../../src/modules/server/events";
+import { Logger } from "../../src/logger";
 
 let initialized = false;
 
@@ -20,31 +21,34 @@ export default (nitroApp: NitroApp) => {
 	}
 	initialized = true;
 
+	const pluginLogger = Logger.get("EventBusPlugin");
+	const eventHandlerLogger = Logger.get("EventHandlers");
+	const schedulerLogger = Logger.get("PlaylistScheduler");
 	const eventBus = getEventBus();
 
 	// Register core event handlers
-	console.log("[EventBus Plugin] Registering event handlers...");
+	pluginLogger.info("Registering event handlers...");
 
 	// Log all events in development
 	if (process.env.NODE_ENV !== "production") {
-		registerLoggingHandler();
-		console.log("[EventBus Plugin] ✓ Logging handler registered");
+		registerLoggingHandler(eventHandlerLogger);
+		pluginLogger.info("Logging handler registered");
 	}
 
 	// Track metrics
-	registerMetricsHandler();
-	console.log("[EventBus Plugin] ✓ Metrics handler registered");
+	registerMetricsHandler(eventHandlerLogger);
+	pluginLogger.info("Metrics handler registered");
 
 	// Auto-reload scheduler on playlist changes
-	const scheduler = getScheduler();
+	const scheduler = getScheduler(schedulerLogger);
 	registerSchedulerReloadHandler(async () => {
 		await scheduler.reload();
 	});
-	console.log("[EventBus Plugin] ✓ Scheduler reload handler registered");
+	pluginLogger.info("Scheduler reload handler registered");
 
 	// Warn on long-running syncs (5 minutes threshold)
-	registerSyncDurationWarningHandler(300000);
-	console.log("[EventBus Plugin] ✓ Sync duration warning handler registered");
+	registerSyncDurationWarningHandler(300000, eventHandlerLogger);
+	pluginLogger.info("Sync duration warning handler registered");
 
 	// Example: Register failure notification handler if webhook URL is configured
 	// const webhookUrl = process.env.FAILURE_WEBHOOK_URL;
@@ -56,16 +60,16 @@ export default (nitroApp: NitroApp) => {
 	// 			body: JSON.stringify({ playlistName, error, timestamp: new Date() }),
 	// 		});
 	// 	});
-	// 	console.log("[EventBus Plugin] ✓ Failure notification handler registered");
+	//  console.log("Failure notification handler registered");
 	// }
 
-	console.log(
-		`[EventBus Plugin] Event bus initialized with ${eventBus.getHandlerCount()} handlers`,
+	pluginLogger.info(
+		`Event bus initialized with ${eventBus.getHandlerCount()} handlers`,
 	);
 
 	// Cleanup on server close
 	nitroApp.hooks.hook("close", () => {
-		console.log("[EventBus Plugin] Clearing event bus handlers...");
+		pluginLogger.info("Clearing event bus handlers...");
 		eventBus.clear();
 	});
 };

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Cron } from "croner";
 import { and, eq } from "drizzle-orm";
+import type { AppLogger } from "../../../logger";
+import { Logger } from "../../../logger";
 import { getDb, schema } from "../db";
 import type { PlaylistRow } from "../db/schema";
 import { getEventBus } from "../events";
@@ -15,9 +17,11 @@ export class PlaylistScheduler {
 	private readonly tasks: Map<string, Cron> = new Map();
 	private readonly invocator: SpotdlInvocator;
 	private readonly runningPlaylists: Set<string> = new Set();
+	private readonly logger: AppLogger;
 
-	constructor() {
+	constructor(logger?: AppLogger) {
 		this.invocator = new SpotdlInvocator();
+		this.logger = logger ?? Logger.get("PlaylistScheduler");
 	}
 
 	/**
@@ -65,8 +69,9 @@ export class PlaylistScheduler {
 	private async executePlaylistSync(playlist: PlaylistRow): Promise<void> {
 		// Prevent concurrent runs of the same playlist
 		if (this.runningPlaylists.has(playlist.id)) {
-			console.log(
-				`[Scheduler] Playlist "${playlist.name}" (${playlist.id}) is already running, skipping`,
+			this.logger.warn(
+				{ playlistId: playlist.id, playlistName: playlist.name },
+				"Playlist is already running, skipping",
 			);
 			return;
 		}
@@ -76,8 +81,9 @@ export class PlaylistScheduler {
 		const startedAt = new Date();
 		let createPromise: Promise<unknown> | null = null;
 
-		console.log(
-			`[Scheduler] Starting scheduled sync for playlist "${playlist.name}" (${playlist.id})`,
+		this.logger.info(
+			{ playlistId: playlist.id, playlistName: playlist.name },
+			"Starting scheduled sync",
 		);
 
 		const eventBus = getEventBus();
@@ -126,8 +132,13 @@ export class PlaylistScheduler {
 			const finishedAtMs = new Date(result.finishedAt).getTime();
 			const duration = finishedAtMs - startedAt.getTime();
 
-			console.log(
-				`[Scheduler] Completed sync for playlist "${playlist.name}" (${playlist.id}) with status: ${result.status}`,
+			this.logger.info(
+				{
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					status: result.status,
+				},
+				"Completed sync",
 			);
 
 			if (result.status === "success") {
@@ -169,9 +180,9 @@ export class PlaylistScheduler {
 				});
 			}
 		} catch (error) {
-			console.error(
-				`[Scheduler] Error syncing playlist "${playlist.name}" (${playlist.id}):`,
-				error,
+			this.logger.error(
+				{ err: error, playlistId: playlist.id, playlistName: playlist.name },
+				"Error syncing playlist",
 			);
 
 			if (createPromise) {
@@ -219,8 +230,9 @@ export class PlaylistScheduler {
 		) {
 			cronExpression = this.intervalToCron(playlist.scheduleMinutes);
 		} else {
-			console.warn(
-				`[Scheduler] Playlist "${playlist.name}" (${playlist.id}) has invalid schedule configuration`,
+			this.logger.warn(
+				{ playlistId: playlist.id, playlistName: playlist.name },
+				"Invalid schedule configuration",
 			);
 			return;
 		}
@@ -233,13 +245,23 @@ export class PlaylistScheduler {
 			});
 
 			this.tasks.set(playlist.id, task);
-			console.log(
-				`[Scheduler] Scheduled playlist "${playlist.name}" (${playlist.id}) with cron: ${cronExpression}`,
+			this.logger.info(
+				{
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					cron: cronExpression,
+				},
+				"Scheduled playlist",
 			);
 		} catch (error) {
-			console.error(
-				`[Scheduler] Invalid cron expression "${cronExpression}" for playlist "${playlist.name}" (${playlist.id})`,
-				error,
+			this.logger.error(
+				{
+					err: error,
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					cron: cronExpression,
+				},
+				"Invalid cron expression",
 			);
 		}
 	}
@@ -252,7 +274,7 @@ export class PlaylistScheduler {
 		if (task) {
 			task.stop();
 			this.tasks.delete(playlistId);
-			console.log(`[Scheduler] Unscheduled playlist ${playlistId}`);
+			this.logger.info({ playlistId }, "Unscheduled playlist");
 		}
 	}
 
@@ -260,25 +282,26 @@ export class PlaylistScheduler {
 	 * Initialize the scheduler by loading all scheduled playlists from the database
 	 */
 	async initialize(): Promise<void> {
-		console.log("[Scheduler] Initializing playlist scheduler...");
+		this.logger.info("Initializing playlist scheduler...");
 
 		const playlists = await this.getScheduledPlaylists();
-		console.log(
-			`[Scheduler] Found ${playlists.length} playlist(s) with scheduling enabled`,
+		this.logger.info(
+			{ count: playlists.length },
+			"Found playlists with scheduling enabled",
 		);
 
 		for (const playlist of playlists) {
 			this.schedulePlaylist(playlist);
 		}
 
-		console.log("[Scheduler] Playlist scheduler initialized");
+		this.logger.info("Playlist scheduler initialized");
 	}
 
 	/**
 	 * Reload schedules from database (useful when playlists are updated)
 	 */
 	async reload(): Promise<void> {
-		console.log("[Scheduler] Reloading playlist schedules...");
+		this.logger.info("Reloading playlist schedules...");
 
 		// Stop all current tasks
 		for (const [playlistId] of this.tasks) {
@@ -293,11 +316,11 @@ export class PlaylistScheduler {
 	 * Stop all scheduled tasks
 	 */
 	shutdown(): void {
-		console.log("[Scheduler] Shutting down playlist scheduler...");
+		this.logger.info("Shutting down playlist scheduler...");
 		for (const [playlistId] of this.tasks) {
 			this.unschedulePlaylist(playlistId);
 		}
-		console.log("[Scheduler] Playlist scheduler stopped");
+		this.logger.info("Playlist scheduler stopped");
 	}
 
 	/**
@@ -321,9 +344,9 @@ let schedulerInstance: PlaylistScheduler | null = null;
 /**
  * Get or create the singleton scheduler instance
  */
-export function getScheduler(): PlaylistScheduler {
+export function getScheduler(logger?: AppLogger): PlaylistScheduler {
 	if (!schedulerInstance) {
-		schedulerInstance = new PlaylistScheduler();
+		schedulerInstance = new PlaylistScheduler(logger);
 	}
 	return schedulerInstance;
 }

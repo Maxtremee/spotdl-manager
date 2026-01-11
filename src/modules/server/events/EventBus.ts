@@ -184,10 +184,7 @@ export class EventBus {
 		try {
 			await handler(event);
 		} catch (error) {
-			console.error(
-				`[EventBus] Handler failed for event ${event.type}:`,
-				error,
-			);
+			console.error(`Handler failed for event ${event.type}:`, error);
 		}
 	}
 

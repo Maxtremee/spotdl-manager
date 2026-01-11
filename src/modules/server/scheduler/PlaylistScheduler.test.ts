@@ -33,7 +33,11 @@ const {
 
 // Mock croner - must be before imports
 vi.mock("croner", () => {
-	const CronMock = vi.fn(function (this: MockCronInstance, pattern: string, callback?: any) {
+	const CronMock = vi.fn(function (
+		this: MockCronInstance,
+		pattern: string,
+		callback?: any,
+	) {
 		this.stop = vi.fn();
 		this.callback = callback;
 		mockCronInstances.set(pattern, this);
@@ -69,7 +73,9 @@ vi.mock("../invocation/repository", () => ({
 
 // Mock the SpotdlInvocator
 vi.mock("../spotdl/repository/SpotdlInvocator", () => {
-	const SpotdlInvocatorMock = vi.fn(function (this: { run: typeof mockSpotdlRun }) {
+	const SpotdlInvocatorMock = vi.fn(function (this: {
+		run: typeof mockSpotdlRun;
+	}) {
 		this.run = mockSpotdlRun;
 	});
 

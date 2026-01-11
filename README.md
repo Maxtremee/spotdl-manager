@@ -27,9 +27,6 @@ Manager for playlists downloaded via [spotdl](https://github.com/spotDL/spotify-
 
 ## Requirements
 
-- Node.js 18+ and PNPM
-- `spotdl` installed in the environment where downloads run (host or Docker image – see Docker section)
-- A self-hosted environment (local machine, home server, or VPS). Cloud hosting is possible but not required.
 
 ## Quick Start (dev)
 
@@ -38,6 +35,12 @@ pnpm install
 pnpm dev
 ```
 
+## Logging
+
+ Centralized logger is provided via Pino in `src/logger.ts`.
+ Access the logger via `Logger.get()` in server code or via the router context in routes: `const { logger } = Route.useContext()`.
+ In development, logs are prettified using `pino-pretty`.
+ Server plugins and schedulers now use the injected logger instead of `console`.
 The dev server runs on port 3000 by default.
 
 ## Build & Start (SSR)
@@ -61,7 +64,7 @@ Validation lives in [src/env.ts](src/env.ts). Client-side variables must be pref
 
 Example `.env` (local with Vite):
 
-```
+```bash
 # Server URL (optional)
 SERVER_URL=
 

@@ -28,8 +28,7 @@ export const CreatePlaylistFormSchema = z.object({
 				}
 			},
 			{
-				message:
-					"URL must be from Spotify (playlist, album, or track)",
+				message: "URL must be from Spotify (playlist, album, or track)",
 			},
 		),
 

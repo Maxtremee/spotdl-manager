@@ -12,7 +12,6 @@ import { css } from "styled-system/css";
 import { stack } from "styled-system/patterns";
 
 import { Nav } from "~/components/nav";
-
 import styleCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext()({

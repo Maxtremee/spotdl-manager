@@ -16,11 +16,11 @@ export function setupWebhookNotifications() {
 	const webhookUrl = process.env.WEBHOOK_URL;
 
 	if (!webhookUrl) {
-		console.log("[Webhook] WEBHOOK_URL not configured, skipping");
+		console.log("Webhook: WEBHOOK_URL not configured, skipping");
 		return;
 	}
 
-	console.log(`[Webhook] Registering failure notifications to ${webhookUrl}`);
+	console.log(`Webhook: Registering failure notifications to ${webhookUrl}`);
 
 	// Track consecutive failures
 	const failureCount = new Map<string, number>();
@@ -64,24 +64,24 @@ export function setupWebhookNotifications() {
 
 			if (response.ok) {
 				console.log(
-					`[Webhook] Notification sent for playlist "${playlistName}" (${severity})`,
+					`Webhook notification sent for playlist "${playlistName}" (${severity})`,
 				);
 			} else {
 				console.error(
-					`[Webhook] Failed to send notification: ${response.status} ${response.statusText}`,
+					`Failed to send webhook notification: ${response.status} ${response.statusText}`,
 				);
 			}
 		} catch (fetchError) {
-			console.error("[Webhook] Error sending notification:", fetchError);
+			console.error("Error sending webhook notification:", fetchError);
 		}
 
 		// Suggest action if threshold exceeded
 		if (count >= FAILURE_THRESHOLD) {
 			console.error(
-				`[Webhook] 🚨 Playlist "${playlistName}" has failed ${count} times consecutively!`,
+				`🚨 Playlist "${playlistName}" has failed ${count} times consecutively!`,
 			);
 			console.error(
-				`[Webhook] Consider disabling the playlist or checking the source URL.`,
+				"Consider disabling the playlist or checking the source URL.",
 			);
 		}
 	});
@@ -161,7 +161,7 @@ export function setupAuditLog() {
 		};
 
 		// In production, use a proper logging library
-		console.log("[Audit]", JSON.stringify(logEntry));
+		console.log("Audit", JSON.stringify(logEntry));
 
 		// Or write to file:
 		// await fs.appendFile(
@@ -189,7 +189,7 @@ export function setupWebSocketBroadcast(/* wsServer: WebSocketServer */) {
 		//   playlistId: event.payload.playlistId,
 		//   playlistName: event.payload.playlistName,
 		// });
-		console.log("[WS] Would broadcast: sync_started");
+		console.log("Would broadcast: sync_started");
 	});
 
 	const unsubscribeCompleted = bus.on("playlist.sync.completed", (_event) => {
@@ -198,7 +198,7 @@ export function setupWebSocketBroadcast(/* wsServer: WebSocketServer */) {
 		//   playlistId: event.payload.playlistId,
 		//   duration: event.payload.duration,
 		// });
-		console.log("[WS] Would broadcast: sync_completed");
+		console.log("Would broadcast: sync_completed");
 	});
 
 	// Return combined cleanup
@@ -228,17 +228,15 @@ export function setupAutoRetry(/* scheduler: PlaylistScheduler */) {
 			const delay = BASE_DELAY * 2 ** (attempts - 1); // Exponential backoff
 
 			console.log(
-				`[AutoRetry] Scheduling retry ${attempts}/${MAX_RETRIES} for "${playlistName}" in ${delay / 1000}s`,
+				`Scheduling retry ${attempts}/${MAX_RETRIES} for "${playlistName}" in ${delay / 1000}s`,
 			);
 
 			setTimeout(() => {
 				// scheduler.executePlaylist(playlistId);
-				console.log(`[AutoRetry] Retrying "${playlistName}"`);
+				console.log(`Retrying "${playlistName}"`);
 			}, delay);
 		} else {
-			console.error(
-				`[AutoRetry] Max retries exceeded for "${playlistName}", giving up`,
-			);
+			console.error(`Max retries exceeded for "${playlistName}", giving up`);
 			retryAttempts.delete(playlistId);
 		}
 	});
