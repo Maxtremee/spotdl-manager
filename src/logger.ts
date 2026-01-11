@@ -21,35 +21,6 @@ export class Logger {
 						},
 					}
 				: undefined,
-			hooks: {
-				// Automatically prefix messages with the module name when present
-				logMethod(args, method) {
-					const bindings =
-						typeof (this as pino.Logger).bindings === "function"
-							? (this as pino.Logger).bindings()
-							: {};
-
-					const moduleName = (bindings as Record<string, unknown>).module;
-
-					if (
-						typeof moduleName === "string" &&
-						args.length > 0 &&
-						typeof args[args.length - 1] === "string"
-					) {
-						const msg = args[args.length - 1] as string;
-						// Avoid double-prefixing if the message is already tagged
-						if (!msg.startsWith("[")) {
-							args[args.length - 1] = `[${moduleName}] ${msg}`;
-						}
-					}
-
-					return method.apply(this, args as Parameters<typeof method>);
-				},
-			},
-			redact: {
-				paths: ["module"],
-				remove: true,
-			},
 		});
 	}
 
