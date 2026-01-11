@@ -13,6 +13,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LibraryAddRouteImport } from './routes/library_.add'
+import { Route as LibraryPlaylistIdRouteImport } from './routes/library_.$playlistId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -34,17 +35,24 @@ const LibraryAddRoute = LibraryAddRouteImport.update({
   path: '/library/add',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibraryPlaylistIdRoute = LibraryPlaylistIdRouteImport.update({
+  id: '/library_/$playlistId',
+  path: '/library/$playlistId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/library/$playlistId': typeof LibraryPlaylistIdRoute
   '/library/add': typeof LibraryAddRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/library/$playlistId': typeof LibraryPlaylistIdRoute
   '/library/add': typeof LibraryAddRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/library_/$playlistId': typeof LibraryPlaylistIdRoute
   '/library_/add': typeof LibraryAddRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/library' | '/settings' | '/library/add'
+  fullPaths:
+    | '/'
+    | '/library'
+    | '/settings'
+    | '/library/$playlistId'
+    | '/library/add'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/library' | '/settings' | '/library/add'
-  id: '__root__' | '/' | '/library' | '/settings' | '/library_/add'
+  to: '/' | '/library' | '/settings' | '/library/$playlistId' | '/library/add'
+  id:
+    | '__root__'
+    | '/'
+    | '/library'
+    | '/settings'
+    | '/library_/$playlistId'
+    | '/library_/add'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
   SettingsRoute: typeof SettingsRoute
+  LibraryPlaylistIdRoute: typeof LibraryPlaylistIdRoute
   LibraryAddRoute: typeof LibraryAddRoute
 }
 
@@ -99,6 +120,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof LibraryAddRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library_/$playlistId': {
+      id: '/library_/$playlistId'
+      path: '/library/$playlistId'
+      fullPath: '/library/$playlistId'
+      preLoaderRoute: typeof LibraryPlaylistIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -106,6 +134,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
   SettingsRoute: SettingsRoute,
+  LibraryPlaylistIdRoute: LibraryPlaylistIdRoute,
   LibraryAddRoute: LibraryAddRoute,
 }
 export const routeTree = rootRouteImport

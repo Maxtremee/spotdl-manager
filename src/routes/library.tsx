@@ -184,12 +184,21 @@ function Library() {
 											<Table.Row
 												class={css({
 													"&:hover": { bgColor: "bg.muted" },
-													cursor: "pointer",
 													transition: "colors 200ms",
 												})}
 											>
 												<Table.Cell class={css({ fontWeight: "500" })}>
-													{PlaylistService.truncateText(playlist.name, 40)}
+													<Link
+														to="/library/$playlistId"
+														params={{ playlistId: playlist.id ?? "" }}
+														class={css({
+															color: "fg.default",
+															textDecoration: "none",
+															"&:hover": { textDecoration: "underline" },
+														})}
+													>
+														{PlaylistService.truncateText(playlist.name, 40)}
+													</Link>
 												</Table.Cell>
 												<Table.Cell>
 													<Badge>
@@ -217,13 +226,18 @@ function Library() {
 												</Table.Cell>
 												<Table.Cell>
 													<div class={hstack({ gap: "2" })}>
-														<Button
-															size="sm"
-															variant="outline"
-															class={css({ fontSize: "xs" })}
+														<Link
+															to="/library/$playlistId"
+															params={{ playlistId: playlist.id ?? "" }}
 														>
-															Edit
-														</Button>
+															<Button
+																size="sm"
+																variant="outline"
+																class={css({ fontSize: "xs" })}
+															>
+																View
+															</Button>
+														</Link>
 														<Button
 															size="sm"
 															variant="outline"

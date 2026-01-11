@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/solid-start";
 import { z } from "zod";
 import { PlaylistSchema } from "~/modules/client/playlist/schema/playlist";
+import { InvocationRepository } from "../invocation/repository";
 import { PlaylistRepository } from "./repository";
 
 // Define input schema for list playlists function
@@ -93,4 +94,143 @@ export const deletePlaylistServerFn = createServerFn({ method: "POST" })
 					error instanceof Error ? error.message : "Failed to delete playlist",
 			};
 		}
+	});
+
+// Define input schema for update playlist function
+const updatePlaylistInputSchema = z.object({
+	id: z.string().min(1),
+	status: z.enum(["active", "paused", "archived", "error"]).optional(),
+	flags: z
+		.object({
+			overwrite: z.boolean().optional(),
+			retries: z.number().int().min(0).max(10).optional(),
+			quality: z
+				.enum(["worst", "low", "medium", "high", "very_high", "lossless"])
+				.optional(),
+			format: z
+				.enum(["mp3", "flac", "ogg", "m4a", "opus", "vorbis", "wav"])
+				.optional(),
+		})
+		.optional(),
+	schedule: z
+		.object({
+			enabled: z.boolean().optional(),
+			schedule: z
+				.discriminatedUnion("type", [
+					z.object({
+						type: z.literal("cron"),
+						cron: z.string(),
+					}),
+					z.object({
+						type: z.literal("interval"),
+						minutes: z.number().int().min(1).max(43200),
+					}),
+				])
+				.optional(),
+		})
+		.optional(),
+});
+
+/**
+ * Server function to update a playlist
+ */
+export const updatePlaylistServerFn = createServerFn({ method: "POST" })
+	.inputValidator(updatePlaylistInputSchema)
+	.handler(async ({ data }) => {
+		try {
+			const { id, flags, schedule, ...rest } = data;
+
+			// Fetch existing playlist to merge partial updates
+			const existing = await PlaylistRepository.getPlaylistById(id);
+			if (!existing) {
+				return { success: false, error: `Playlist with id ${id} not found` };
+			}
+
+			// Build complete update object, merging partials with existing data
+			const updates: Parameters<typeof PlaylistRepository.updatePlaylist>[1] = {
+				...rest,
+			};
+
+			if (flags) {
+				updates.flags = {
+					overwrite: flags.overwrite ?? existing.flags?.overwrite ?? false,
+					retries: flags.retries ?? existing.flags?.retries ?? 3,
+					quality: flags.quality ?? existing.flags?.quality ?? "high",
+					format: flags.format ?? existing.flags?.format ?? "mp3",
+				};
+			}
+
+			if (schedule) {
+				updates.schedule = {
+					enabled: schedule.enabled ?? existing.schedule?.enabled ?? false,
+					schedule: schedule.schedule ??
+						existing.schedule?.schedule ?? {
+							type: "interval",
+							minutes: 1440,
+						},
+				};
+			}
+
+			const result = await PlaylistRepository.updatePlaylist(id, updates);
+			return { success: true, data: result };
+		} catch (error) {
+			console.error("Failed to update playlist:", error);
+			return {
+				success: false,
+				error:
+					error instanceof Error ? error.message : "Failed to update playlist",
+			};
+		}
+	});
+
+// Define input schema for list invocations function
+const listInvocationsInputSchema = z.object({
+	playlistId: z.string().min(1),
+	page: z.number().int().positive().default(1),
+	limit: z.number().int().positive().default(10),
+	status: z.enum(["running", "success", "failed", "canceled"]).optional(),
+});
+
+/**
+ * Server function to list invocations for a playlist
+ */
+export const listInvocationsServerFn = createServerFn({ method: "GET" })
+	.inputValidator(listInvocationsInputSchema)
+	.handler(async ({ data }) =>
+		InvocationRepository.listInvocations({
+			playlistId: data.playlistId,
+			page: data.page,
+			limit: data.limit,
+			status: data.status,
+		}),
+	);
+
+// Define input schema for get playlist details (playlist + invocations)
+const getPlaylistDetailsInputSchema = z.object({
+	id: z.string().min(1),
+	invocationsPage: z.number().int().positive().default(1),
+	invocationsLimit: z.number().int().positive().default(10),
+});
+
+/**
+ * Server function to get playlist details including invocations
+ */
+export const getPlaylistDetailsServerFn = createServerFn({ method: "GET" })
+	.inputValidator(getPlaylistDetailsInputSchema)
+	.handler(async ({ data }) => {
+		const playlist = await PlaylistRepository.getPlaylistById(data.id);
+		if (!playlist) {
+			throw new Error(`Playlist with id ${data.id} not found`);
+		}
+
+		const invocations = await InvocationRepository.listInvocations({
+			playlistId: data.id,
+			page: data.invocationsPage,
+			limit: data.invocationsLimit,
+		});
+
+		return {
+			playlist,
+			invocations,
+		};
 	});
