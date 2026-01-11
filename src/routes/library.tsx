@@ -297,7 +297,7 @@ function Library() {
 					<Card.Title>Information</Card.Title>
 				</Card.Header>
 				<Card.Body>
-					<ul class={vstack({ gap: "2", color: "fg.muted", fontSize: "sm" })}>
+					<ul class={stack({ gap: "2", color: "fg.muted", fontSize: "sm" })}>
 						<li>
 							• Each playlist will automatically sync according to the set
 							schedule
