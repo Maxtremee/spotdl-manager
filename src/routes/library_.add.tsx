@@ -57,7 +57,10 @@ function AddPlaylist() {
 						title: "Success",
 						description: "Playlist created successfully",
 					});
-					navigate({ to: "/library" });
+					navigate({
+						to: "/library/$playlistId",
+						params: { playlistId: result.data.id ?? "" },
+					});
 				} else {
 					toaster.error({
 						title: "Error",
