@@ -101,11 +101,15 @@ export class PlaylistScheduler {
 		});
 
 		try {
+			// Compute log path upfront so we can read logs while invocation is running
+			const logPath = this.invocator.getLogPath(playlist.id, startedAt);
+
 			createPromise = InvocationRepository.create({
 				id: invocationId,
 				playlistId: playlist.id,
 				startedAt,
 				status: "running",
+				logPath,
 			});
 
 			const result = await this.invocator.run({

@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import { createServerFn } from "@tanstack/solid-start";
 import { z } from "zod";
 import { PlaylistSchema } from "~/modules/client/playlist/schema/playlist";
@@ -233,4 +234,68 @@ export const getPlaylistDetailsServerFn = createServerFn({ method: "GET" })
 			playlist,
 			invocations,
 		};
+	});
+
+// Define input schema for get invocation log function
+const getInvocationLogInputSchema = z.object({
+	invocationId: z.string().min(1),
+});
+
+/**
+ * Server function to get the log content for an invocation
+ * Supports both running (partial log) and completed invocations (full log)
+ */
+export const getInvocationLogServerFn = createServerFn({ method: "GET" })
+	.inputValidator(getInvocationLogInputSchema)
+	.handler(async ({ data }) => {
+		const invocation = await InvocationRepository.getById(data.invocationId);
+		if (!invocation) {
+			return {
+				success: false,
+				error: `Invocation with id ${data.invocationId} not found`,
+			};
+		}
+
+		if (!invocation.logPath) {
+			return {
+				success: true,
+				data: {
+					invocationId: invocation.id,
+					status: invocation.status,
+					content: "",
+					isRunning: invocation.status === "running",
+				},
+			};
+		}
+
+		try {
+			const content = await fs.readFile(invocation.logPath, "utf8");
+			return {
+				success: true,
+				data: {
+					invocationId: invocation.id,
+					status: invocation.status,
+					content,
+					isRunning: invocation.status === "running",
+				},
+			};
+		} catch (error) {
+			// File may not exist yet if invocation just started
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+				return {
+					success: true,
+					data: {
+						invocationId: invocation.id,
+						status: invocation.status,
+						content: "",
+						isRunning: invocation.status === "running",
+					},
+				};
+			}
+			return {
+				success: false,
+				error:
+					error instanceof Error ? error.message : "Failed to read log file",
+			};
+		}
 	});

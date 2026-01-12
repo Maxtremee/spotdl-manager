@@ -43,6 +43,7 @@ export const Route = createFileRoute("/library_/$playlistId")({
 
 function PlaylistDetails() {
 	const navigate = Route.useNavigate();
+	const params = Route.useParams();
 	const search = Route.useSearch();
 	const data = Route.useLoaderData();
 	const [isUpdating, setIsUpdating] = createSignal(false);
@@ -504,6 +505,9 @@ function PlaylistDetails() {
 									<Table.Header class={css({ fontWeight: "semibold" })}>
 										Summary
 									</Table.Header>
+									<Table.Header class={css({ fontWeight: "semibold" })}>
+										Actions
+									</Table.Header>
 								</Table.Row>
 							</Table.Head>
 							<Table.Body>
@@ -541,6 +545,19 @@ function PlaylistDetails() {
 												{invocation.summary
 													? PlaylistService.truncateText(invocation.summary, 50)
 													: "-"}
+											</Table.Cell>
+											<Table.Cell>
+												<Link
+													to="/library/$playlistId/logs/$logId"
+													params={{
+														playlistId: params().playlistId,
+														logId: invocation.id,
+													}}
+												>
+													<Button variant="subtle" size="xs">
+														View Log
+													</Button>
+												</Link>
 											</Table.Cell>
 										</Table.Row>
 									)}

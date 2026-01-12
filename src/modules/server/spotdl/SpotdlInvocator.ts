@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { promises as fs } from "node:fs";
+import { createWriteStream, promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
@@ -102,19 +102,15 @@ export class SpotdlInvocator {
 			.replace("Z", "");
 	}
 
-	private async writeLog(
-		content: string,
-		playlistId?: string,
-		startedAt?: Date,
-	): Promise<string> {
-		await this.ensureDir(this.logsDir);
-		const timestamp = this.formatTimestamp(startedAt ?? new Date());
+	/**
+	 * Generate log file path for an invocation (used for streaming logs)
+	 */
+	getLogPath(playlistId: string | undefined, startedAt: Date): string {
+		const timestamp = this.formatTimestamp(startedAt);
 		const filename = playlistId
 			? `${playlistId}-${timestamp}.txt`
 			: `${timestamp}.txt`;
-		const logPath = path.join(this.logsDir, filename);
-		await fs.writeFile(logPath, content, "utf8");
-		return logPath;
+		return path.join(this.logsDir, filename);
 	}
 
 	private getSyncFilePath(playlistId: string): string {
@@ -176,24 +172,47 @@ export class SpotdlInvocator {
 		}
 
 		const args = this.buildArgs(input, syncFilePath);
+
+		// Prepare log file for incremental writing
+		await this.ensureDir(this.logsDir);
+		const logPath = this.getLogPath(input.playlistId, startedAtDate);
+		const logStream = createWriteStream(logPath, {
+			flags: "w",
+			encoding: "utf8",
+		});
+
+		// Write header immediately
+		logStream.write(`# spotdl run ${runId}\n`);
+		logStream.write(`startedAt: ${startedAt}\n`);
+		logStream.write(`finishedAt: (in progress)\n`);
+		logStream.write(`exitCode: (pending)\n\n`);
+		logStream.write("## output\n");
+
 		const child = spawn(this.binaryPath, args, {
 			stdio: ["ignore", "pipe", "pipe"],
 			env: this.env,
 		});
 
 		let stdoutBuf = "";
-		let stderrBuf = "";
 		let spawnError: Error | null = null;
 
+		// Write stdout chunks immediately to file
 		child.stdout?.on("data", (chunk) => {
-			stdoutBuf += chunk.toString();
+			const text = chunk.toString();
+			stdoutBuf += text;
+			logStream.write(text);
 		});
+
+		// Write stderr chunks immediately to file (prefixed for clarity)
 		child.stderr?.on("data", (chunk) => {
-			stderrBuf += chunk.toString();
+			const text = chunk.toString();
+			logStream.write(`[stderr] ${text}`);
 		});
+
 		child.on("error", (err) => {
 			spawnError = err as Error;
-			stderrBuf += `\n[spawn error] ${err.message}\n`;
+			const errorMsg = `\n[spawn error] ${err.message}\n`;
+			logStream.write(errorMsg);
 		});
 
 		await once(child, "close");
@@ -201,24 +220,19 @@ export class SpotdlInvocator {
 		const finishedAt = new Date().toISOString();
 		const exitCode = child.exitCode ?? (spawnError ? 127 : null);
 
-		const combinedLog = [
-			`# spotdl run ${runId}`,
-			`startedAt: ${startedAt}`,
-			`finishedAt: ${finishedAt}`,
-			`exitCode: ${exitCode}`,
-			"",
-			"## stdout",
-			stdoutBuf,
-			"",
-			"## stderr",
-			stderrBuf,
-		].join("\n");
+		// Write footer with final status
+		logStream.write("\n\n## summary\n");
+		logStream.write(`finishedAt: ${finishedAt}\n`);
+		logStream.write(`exitCode: ${exitCode}\n`);
+		logStream.write(`status: ${exitCode === 0 ? "success" : "failed"}\n`);
+		logStream.end();
 
-		const logPath = await this.writeLog(
-			combinedLog,
-			input.playlistId,
-			startedAtDate,
-		);
+		// Wait for stream to finish writing
+		await new Promise<void>((resolve, reject) => {
+			logStream.on("finish", resolve);
+			logStream.on("error", reject);
+		});
+
 		const status: "success" | "failed" | "canceled" =
 			exitCode === 0 ? "success" : "failed";
 		const summary = stdoutBuf.split("\n").slice(-10).join("\n");
