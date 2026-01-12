@@ -1,6 +1,6 @@
 import { createForm } from "@tanstack/solid-form";
 import { createFileRoute, useRouter } from "@tanstack/solid-router";
-import { For, Index } from "solid-js";
+import { Index } from "solid-js";
 import { css } from "styled-system/css";
 import { stack, vstack } from "styled-system/patterns";
 import { Button } from "~/components/ui/button";
