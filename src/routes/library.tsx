@@ -162,9 +162,6 @@ function Library() {
 									<Table.Header class={css({ fontWeight: "semibold" })}>
 										Updated
 									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Actions
-									</Table.Header>
 								</Table.Row>
 							</Table.Head>
 							<Table.Body>
@@ -212,29 +209,6 @@ function Library() {
 												{playlist.updatedAt
 													? PlaylistService.formatDate(playlist.updatedAt)
 													: "N/A"}
-											</Table.Cell>
-											<Table.Cell>
-												<div class={hstack({ gap: "2" })}>
-													<Link
-														to="/library/$playlistId"
-														params={{ playlistId: playlist.id ?? "" }}
-													>
-														<Button
-															size="sm"
-															variant="outline"
-															class={css({ fontSize: "xs" })}
-														>
-															View
-														</Button>
-													</Link>
-													<Button
-														size="sm"
-														variant="outline"
-														class={css({ fontSize: "xs" })}
-													>
-														Delete
-													</Button>
-												</div>
 											</Table.Cell>
 										</Table.Row>
 									)}

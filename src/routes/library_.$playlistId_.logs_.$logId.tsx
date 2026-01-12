@@ -17,10 +17,10 @@ export const Route = createFileRoute("/library_/$playlistId_/logs_/$logId")({
 	loader: async ({ params }) => {
 		const playlist = await getPlaylistByIdServerFn({
 			data: { id: params.playlistId },
-		})
+		});
 		const logResult = await getInvocationLogServerFn({
 			data: { invocationId: params.logId },
-		})
+		});
 		return { playlist, logResult };
 	},
 	component: InvocationLogPage,
@@ -32,16 +32,16 @@ function InvocationLogPage() {
 
 	const [content, setContent] = createSignal(
 		data().logResult.success ? (data().logResult.data?.content ?? "") : "",
-	)
+	);
 	const [status, setStatus] = createSignal(
 		data().logResult.success
 			? (data().logResult.data?.status ?? "running")
 			: "running",
-	)
+	);
 	const [isLoading, setIsLoading] = createSignal(false);
 	const [error, setError] = createSignal<string | null>(
 		data().logResult.success ? null : (data().logResult.error ?? null),
-	)
+	);
 	const [autoScroll, setAutoScroll] = createSignal(true);
 
 	let logContainerRef: HTMLPreElement | undefined;
@@ -53,7 +53,7 @@ function InvocationLogPage() {
 		try {
 			const result = await getInvocationLogServerFn({
 				data: { invocationId: params().logId },
-			})
+			});
 
 			if (result.success && result.data) {
 				setContent(result.data.content);
@@ -73,7 +73,7 @@ function InvocationLogPage() {
 		} finally {
 			setIsLoading(false);
 		}
-	}
+	};
 
 	// Auto-scroll to bottom when content updates
 	createEffect(() => {
@@ -82,30 +82,30 @@ function InvocationLogPage() {
 		if (autoScroll() && logContainerRef) {
 			logContainerRef.scrollTop = logContainerRef.scrollHeight;
 		}
-	})
+	});
 
 	// Handle scroll to detect if user scrolled up
 	const handleScroll = () => {
 		if (!logContainerRef) {
-			return
+			return;
 		}
 		const { scrollTop, scrollHeight, clientHeight } = logContainerRef;
 		const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
 		setAutoScroll(isAtBottom);
-	}
+	};
 
 	onMount(() => {
 		// Start polling if invocation is running
 		if (isRunning()) {
 			pollInterval = setInterval(fetchLog, 2000);
 		}
-	})
+	});
 
 	onCleanup(() => {
 		if (pollInterval) {
 			clearInterval(pollInterval);
 		}
-	})
+	});
 
 	const playlist = () => data().playlist;
 
@@ -319,5 +319,5 @@ function InvocationLogPage() {
 				</Card.Footer>
 			</Card.Root>
 		</>
-	)
+	);
 }

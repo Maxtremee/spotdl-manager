@@ -10,6 +10,7 @@ import { Badge } from "~/components/ui/badge";
 import * as Breadcrumb from "~/components/ui/breadcrumb";
 import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
+import * as Dialog from "~/components/ui/dialog";
 import * as Field from "~/components/ui/field";
 import { Link as UILink } from "~/components/ui/link";
 import type { RootProps as PaginationRootProps } from "~/components/ui/pagination";
@@ -20,6 +21,7 @@ import { Text } from "~/components/ui/text";
 import { toaster } from "~/components/ui/toast";
 import { PlaylistService } from "~/modules/client/playlist/service/playlist";
 import {
+	deletePlaylistServerFn,
 	getPlaylistDetailsServerFn,
 	triggerPlaylistSyncServerFn,
 	updatePlaylistServerFn,
@@ -50,9 +52,37 @@ function PlaylistDetails() {
 	const data = Route.useLoaderData();
 	const [isUpdating, setIsUpdating] = createSignal(false);
 	const [isSyncing, setIsSyncing] = createSignal(false);
+	const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
 
 	const playlist = () => data().playlist;
 	const invocations = () => data().invocations;
+
+	const handleDeletePlaylist = async () => {
+		setDeleteDialogOpen(false);
+		try {
+			const result = await deletePlaylistServerFn({
+				data: { id: playlist().id! },
+			});
+			if (result.success) {
+				toaster.success({
+					title: "Playlist deleted",
+					description: "The playlist and all its sync logs have been removed",
+				});
+				navigate({ to: "/library" });
+			} else {
+				toaster.error({
+					title: "Delete failed",
+					description: result.error || "Failed to delete playlist",
+				});
+			}
+		} catch (error) {
+			toaster.error({
+				title: "Error",
+				description:
+					error instanceof Error ? error.message : "Failed to delete playlist",
+			});
+		}
+	};
 
 	const handleRunSync = async () => {
 		setIsSyncing(true);
@@ -327,15 +357,58 @@ function PlaylistDetails() {
 				<Card.Header>
 					<div class={hstack({ justify: "space-between", w: "full" })}>
 						<Card.Title>Playlist Configuration</Card.Title>
-						<Button
-							variant="solid"
-							size="sm"
-							onClick={handleRunSync}
-							disabled={isSyncing() || playlist().status !== "active"}
-						>
-							<PlayIcon class={css({ w: "4", h: "4", mr: "1" })} />
-							{isSyncing() ? "Starting..." : "Run Now"}
-						</Button>
+						<div class={hstack({ gap: "2" })}>
+							<Button
+								variant="solid"
+								size="sm"
+								onClick={handleRunSync}
+								disabled={isSyncing() || playlist().status !== "active"}
+							>
+								<PlayIcon class={css({ w: "4", h: "4", mr: "1" })} />
+								{isSyncing() ? "Starting..." : "Run Now"}
+							</Button>
+							<Dialog.Root
+								open={deleteDialogOpen()}
+								onOpenChange={(details) => setDeleteDialogOpen(details.open)}
+							>
+								<Dialog.Trigger
+									asChild={(props) => (
+										<Button {...props()} variant="outline" size="sm">
+											Delete
+										</Button>
+									)}
+								/>
+								<Dialog.Backdrop />
+								<Dialog.Positioner>
+									<Dialog.Content>
+										<Dialog.Header>
+											<Dialog.Title>Delete Playlist</Dialog.Title>
+										</Dialog.Header>
+										<Dialog.Body>
+											<Dialog.Description>
+												Are you sure you want to delete "{playlist().name}"?
+												This will remove the playlist and all its sync logs.
+												This action cannot be undone.
+											</Dialog.Description>
+										</Dialog.Body>
+										<Dialog.Footer
+											class={hstack({ gap: "3", justify: "flex-end" })}
+										>
+											<Dialog.ActionTrigger
+												asChild={(props) => (
+													<Button {...props()} variant="outline">
+														Cancel
+													</Button>
+												)}
+											/>
+											<Button variant="solid" onClick={handleDeletePlaylist}>
+												Delete
+											</Button>
+										</Dialog.Footer>
+									</Dialog.Content>
+								</Dialog.Positioner>
+							</Dialog.Root>
+						</div>
 					</div>
 				</Card.Header>
 				<Card.Body>

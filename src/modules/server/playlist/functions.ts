@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
-import { eq } from "drizzle-orm";
 import { createServerFn } from "@tanstack/solid-start";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { PlaylistSchema } from "~/modules/client/playlist/schema/playlist";
 import { getDb, schema } from "../db";
@@ -89,6 +89,9 @@ export const deletePlaylistServerFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		try {
 			await PlaylistRepository.deletePlaylist(data.id);
+			// Trigger scheduler reload to remove deleted playlist from scheduler
+			const scheduler = getScheduler();
+			await scheduler.reload();
 			return { success: true };
 		} catch (error) {
 			console.error("Failed to delete playlist:", error);
