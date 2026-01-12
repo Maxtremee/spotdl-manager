@@ -93,6 +93,53 @@ VITE_APP_TITLE="spotdl-manager"
 
 Validated in `src/env.ts` via @t3-oss/env-core.
 
+### Logger
+
+Singleton pino-based logger in `src/logger.ts`. Use module-scoped loggers for context:
+
+```typescript
+import { Logger } from "~/logger";
+
+const logger = Logger.get("MyModule");  // Scoped logger
+logger.info("Operation completed");
+logger.error("Failed", { error });
+```
+
+- Development: Pretty-printed with colors
+- Production: JSON output
+- Configure level via `LOG_LEVEL` env variable
+
+### Event Bus
+
+Type-safe pub/sub system in `src/modules/server/events/`. Used for decoupled communication between server components.
+
+```typescript
+import { getEventBus } from "~/modules/server/events";
+
+const bus = getEventBus();
+
+// Subscribe to events
+const unsubscribe = bus.on("playlist.sync.completed", async (event) => {
+  console.log(event.payload.playlistName);
+});
+
+// Emit events
+await bus.emit({
+  type: "playlist.sync.started",
+  payload: { playlistId, playlistName, invocationId, sourceUrl, outputDir },
+});
+```
+
+**Event Types:**
+
+- `playlist.sync.started/completed/failed/canceled` - Sync lifecycle
+- `playlist.created/updated/deleted` - Playlist CRUD
+- `scheduler.reload` - Trigger scheduler refresh
+
+**Pre-built handlers** in `handlers.ts`: logging, metrics, failure notifications, scheduler reload, duration warnings, log cleanup.
+
+**Server integration** via Nitro plugin in `server/plugins/events.ts`.
+
 ## Key Patterns
 
 - Use `~/` path alias for imports
@@ -100,3 +147,5 @@ Validated in `src/env.ts` via @t3-oss/env-core.
 - Business logic in service layer, not components
 - All server mutations via `createServerFn`
 - Test SSR with `pnpm start`, not `pnpm preview`
+- Use `Logger.get("ModuleName")` for server-side logging
+- Emit events via EventBus for cross-cutting concerns (webhooks, metrics, etc.)
