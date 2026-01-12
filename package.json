@@ -16,7 +16,14 @@
 		"typecheck": "tsc --noEmit",
 		"db:migrate": "drizzle-kit migrate",
 		"db:generate": "drizzle-kit generate",
-		"db:push": "drizzle-kit push"
+		"db:push": "drizzle-kit push",
+		"docker:dev": "docker compose up --build",
+		"docker:build": "docker compose build",
+		"docker:down": "docker compose down",
+		"docker:logs": "docker compose logs -f app",
+		"docker:prod": "docker compose -f docker-compose.prod.yml up --build",
+		"docker:prod:build": "docker compose -f docker-compose.prod.yml build",
+		"docker:prod:down": "docker compose -f docker-compose.prod.yml down"
 	},
 	"dependencies": {
 		"@ark-ui/solid": "5.30.0",

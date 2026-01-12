@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: spotdl-manager-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount entire project for live code reloading
+      - .:/app
+      # Use named volume for node_modules to avoid host/container conflicts
+      - node_modules:/app/node_modules
+      # Use named volume for styled-system (generated files)
+      - styled_system:/app/styled-system
+      # Persist data directory (logs, sync files, downloads)
+      - ./data:/app/data
+      # Persist database
+      - ./local.db:/app/local.db
+    environment:
+      # Database location
+      - DATABASE_URL=file:./local.db
+      # Node environment
+      - NODE_ENV=development
+      # Optional: App title
+      - VITE_APP_TITLE=spotdl-manager (Docker Dev)
+      # Optional: Server URL
+      - SERVER_URL=http://localhost:3000
+    stdin_open: true
+    tty: true
+    # Restart policy for development
+    restart: unless-stopped
+
+volumes:
+  # Named volume for node_modules
+  node_modules:
+  # Named volume for styled-system
+  styled_system:

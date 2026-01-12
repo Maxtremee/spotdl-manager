@@ -27,8 +27,60 @@ Manager for playlists downloaded via [spotdl](https://github.com/spotDL/spotify-
 
 ## Requirements
 
+### Local Development
 
-## Quick Start (dev)
+- Node.js 18+ (20 recommended)
+- pnpm package manager
+- `spotdl` installed globally (`pip install spotdl`)
+- FFmpeg installed on your system
+
+### Docker Development (Recommended)
+
+- Docker and Docker Compose
+- All dependencies (spotdl, FFmpeg, Node.js) are pre-installed in the container
+
+## Quick Start
+
+### Option 1: Docker (Recommended for Testing)
+
+The easiest way to run the app locally without installing spotdl:
+
+```bash
+# Build and start the development container
+pnpm docker:dev
+
+# Or use docker compose directly
+docker compose up --build
+```
+
+The app will be available at `http://localhost:3000`.
+
+**What's included in the Docker container:**
+
+- Node.js 20 (Alpine)
+- spotdl pre-installed
+- FFmpeg for audio conversion
+- All project dependencies
+- Live code reloading via volume mounts
+
+**Useful Docker commands:**
+
+```bash
+pnpm docker:down      # Stop the container
+pnpm docker:logs      # View container logs
+pnpm docker:build     # Rebuild the image
+```
+
+**Data persistence:**
+
+- Project files are mounted as volumes for live editing
+- `./data` directory persists logs, sync files, and downloads
+- `./local.db` SQLite database persists across restarts
+- `node_modules` and `styled-system` use Docker volumes for performance
+
+### Option 2: Local Development
+
+If you have spotdl installed locally:
 
 ```bash
 pnpm install
@@ -86,30 +138,76 @@ VITE_APP_TITLE=spotdl-manager
 - The app doesn’t bundle `spotdl`; it runs it as an external process (host or container).
 - Output directory and `spotdl` parameters will be configurable per playlist (planned).
 
-## Docker & Cron (plan)
+## Docker Setup
 
-The project will provide a Docker image including:
+### Development Container
 
-- the SSR server,
-- a cron/worker process to run per‑playlist scheduled downloads,
-- `spotdl` preinstalled or mountable via volume/base image.
+The project includes a development Docker setup with spotdl pre-installed. See [Quick Start](#quick-start) above.
 
-Planned container config:
+**Container architecture:**
 
-- volumes for the output downloads directory and cache if needed,
-- any tokens/APIs required by `spotdl` (if applicable).
+- Base image: Node.js 20 Debian Buster Slim
+- Pre-installed: Python 3, spotdl, FFmpeg, SQLite
+- Scheduler runs in-process (no separate worker container needed)
+- Volume mounts:
+  - Project root → `/app` (live code reloading)
+  - `./data` → `/app/data` (logs, sync files, downloads)
+  - `./local.db` → `/app/local.db` (SQLite database)
+  - Named volumes for `node_modules` and `styled-system`
 
-This image is intended for self-hosting scenarios (e.g., home servers, NAS, or VPS providers).
+**Customizing output directories:**
 
-Example `docker run` (sketch; finalize once the image is published):
+- By default, playlists download to `data/` subdirectories
+- You can configure custom output paths per playlist in the UI
+- For downloads outside the project, add additional volume mounts in `docker-compose.yml`
+
+### Production
+
+Production-ready Docker setup is available for self-hosting scenarios (home servers, NAS, VPS).
+
+**Build and run production container:**
 
 ```bash
-docker run -d \
- -e VITE_APP_TITLE="spotdl-manager" \
- -v /path/on/host:/data \
- -p 3000:3000 \
- ghcr.io/<owner>/spotdl-manager:latest
+# Using docker compose (recommended)
+pnpm docker:prod
+
+# Or build and run separately
+pnpm docker:prod:build
+docker compose -f docker-compose.prod.yml up -d
 ```
+
+**Production container features:**
+
+- Multi-stage build for optimized image size
+- Runs as non-root `node` user for security
+- Health checks included
+- Production-only dependencies
+- Resource limits configured
+- Auto-restart on failure
+
+**Manual docker run:**
+
+```bash
+docker build -t spotdl-manager .
+docker run -d \
+  --name spotdl-manager \
+  -e DATABASE_URL=file:./local.db \
+  -e NODE_ENV=production \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/local.db:/app/local.db \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  spotdl-manager
+```
+
+**Security notes:**
+
+- Container runs as non-root `node` user (UID 1000)
+- Only essential runtime dependencies included
+- Health checks monitor application status
+- Resource limits prevent runaway processes
+
+This image is intended for self-hosting scenarios (e.g., home servers, NAS, or VPS providers).
 
 ## Roadmap
 

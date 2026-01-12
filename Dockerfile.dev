@@ -1,0 +1,50 @@
+# Development Dockerfile with spotdl and all dependencies
+FROM node:20-buster-slim
+
+# Install system dependencies required for spotdl and build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    ffmpeg \
+    git \
+    sqlite3 \
+    # Build dependencies for native modules (better-sqlite3)
+    make \
+    g++ \
+    && ln -sf python3 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install spotdl globally
+RUN pip3 install --no-cache-dir spotdl
+
+# Verify spotdl installation
+RUN spotdl --version
+
+# Install pnpm globally
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first for better layer caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy panda config for codegen
+COPY panda.config.ts tsconfig.json postcss.config.cjs ./
+COPY src/theme ./src/theme
+
+# Run panda codegen
+RUN pnpm prepare
+
+# Expose development port
+EXPOSE 3000
+
+# Set environment to development
+ENV NODE_ENV=development
+
+# Default command: run dev server with host binding for Docker
+CMD ["pnpm", "dev", "--", "--host", "0.0.0.0"]

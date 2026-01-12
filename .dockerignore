@@ -1,0 +1,58 @@
+# Node modules (installed in container)
+node_modules/
+pnpm-lock.yaml
+
+# Build outputs
+.output/
+dist/
+
+# Generated files (regenerated in container)
+styled-system/
+src/routeTree.gen.ts
+
+# Local database and data
+local.db
+local.db-shm
+local.db-wal
+data/
+logs/
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (set in docker-compose)
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+TODO.md
+CLAUDE.md
+LICENSE
+
+# Docker files themselves
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Drizzle migrations already applied
+drizzle/

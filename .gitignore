@@ -11,6 +11,7 @@ dist-ssr
 temp
 data.db
 data
+logs
 ## Panda
 styled-system
 styled-system-studio

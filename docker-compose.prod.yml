@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spotdl-manager
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist data directory (logs, sync files, downloads)
+      - ./data:/app/data
+      # Persist database
+      - ./local.db:/app/local.db
+    environment:
+      # Database location
+      - DATABASE_URL=file:./local.db
+      # Node environment
+      - NODE_ENV=production
+      # Optional: App title
+      - VITE_APP_TITLE=spotdl-manager
+      # Optional: Server URL (update for your domain)
+      - SERVER_URL=http://localhost:3000
+      # Optional: Nitro port override
+      - NITRO_PORT=3000
+    restart: unless-stopped
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
