@@ -76,7 +76,7 @@ export class SpotdlInvocator {
 
 		const { flags } = req;
 		if (flags?.format) {
-			args.push("--format", flags.format);
+			args.push("--output-format", flags.format);
 		}
 		if (flags?.overwrite) {
 			args.push("--overwrite");
@@ -183,6 +183,7 @@ export class SpotdlInvocator {
 
 		// Write header immediately
 		logStream.write(`# spotdl run ${runId}\n`);
+		logStream.write(`command: ${this.binaryPath} ${args.join(" ")}\n`);
 		logStream.write(`startedAt: ${startedAt}\n`);
 		logStream.write(`finishedAt: (in progress)\n`);
 		logStream.write(`exitCode: (pending)\n\n`);
