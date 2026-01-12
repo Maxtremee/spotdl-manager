@@ -1,4 +1,5 @@
 import pino from "pino";
+import pinoPretty from "pino-pretty";
 
 export type AppLogger = pino.Logger;
 
@@ -9,19 +10,18 @@ export class Logger {
 	private constructor() {
 		const isDev = import.meta.env.DEV === true;
 
-		this.logger = pino({
-			level: process.env.LOG_LEVEL || (isDev ? "debug" : "info"),
-			transport: isDev
-				? {
-						target: "pino-pretty",
-						options: {
-							colorize: true,
-							translateTime: "SYS:yyyy-mm-dd HH:MM:ss.l",
-							ignore: "pid,hostname",
-						},
-					}
-				: undefined,
+		const prettyStream = pinoPretty({
+			colorize: true,
+			translateTime: "SYS:yyyy-mm-dd HH:MM:ss.l",
+			ignore: "pid,hostname",
 		});
+
+		this.logger = pino(
+			{
+				level: process.env.LOG_LEVEL || (isDev ? "debug" : "info"),
+			},
+			isDev ? prettyStream : undefined,
+		);
 	}
 
 	static get(moduleName?: string): AppLogger {

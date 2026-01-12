@@ -1,8 +1,11 @@
 import { promises as fs } from "node:fs";
+import { eq } from "drizzle-orm";
 import { createServerFn } from "@tanstack/solid-start";
 import { z } from "zod";
 import { PlaylistSchema } from "~/modules/client/playlist/schema/playlist";
+import { getDb, schema } from "../db";
 import { InvocationRepository } from "../invocation/repository";
+import { getScheduler } from "../scheduler/PlaylistScheduler";
 import { PlaylistRepository } from "./repository";
 
 // Define input schema for list playlists function
@@ -296,6 +299,72 @@ export const getInvocationLogServerFn = createServerFn({ method: "GET" })
 				success: false,
 				error:
 					error instanceof Error ? error.message : "Failed to read log file",
+			};
+		}
+	});
+
+// Define input schema for manual sync function
+const triggerSyncInputSchema = z.object({
+	playlistId: z.string().min(1),
+});
+
+/**
+ * Server function to manually trigger a playlist sync
+ * Bypasses scheduled timing and runs sync immediately
+ */
+export const triggerPlaylistSyncServerFn = createServerFn({ method: "POST" })
+	.inputValidator(triggerSyncInputSchema)
+	.handler(async ({ data }) => {
+		try {
+			// Get raw PlaylistRow from database for the scheduler
+			const db = getDb();
+			const [playlistRow] = await db
+				.select()
+				.from(schema.playlists)
+				.where(eq(schema.playlists.id, data.playlistId));
+
+			if (!playlistRow) {
+				return {
+					success: false,
+					error: `Playlist with id ${data.playlistId} not found`,
+				};
+			}
+
+			if (playlistRow.status !== "active") {
+				return {
+					success: false,
+					error: `Cannot sync playlist with status "${playlistRow.status}". Only active playlists can be synced.`,
+				};
+			}
+
+			const scheduler = getScheduler();
+
+			if (scheduler.isRunning(playlistRow.id)) {
+				return {
+					success: false,
+					error: "Playlist is already syncing",
+				};
+			}
+
+			const result = await scheduler.triggerManualSync(playlistRow);
+
+			if (!result) {
+				return {
+					success: false,
+					error: "Failed to trigger sync",
+				};
+			}
+
+			return {
+				success: true,
+				message: "Sync started successfully",
+			};
+		} catch (error) {
+			console.error("Failed to trigger playlist sync:", error);
+			return {
+				success: false,
+				error:
+					error instanceof Error ? error.message : "Failed to trigger sync",
 			};
 		}
 	});

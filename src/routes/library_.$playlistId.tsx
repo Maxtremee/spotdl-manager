@@ -1,6 +1,7 @@
 import { createListCollection } from "@ark-ui/solid/select";
 import { createFileRoute, Link } from "@tanstack/solid-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { PlayIcon } from "lucide-solid";
 import { createSignal, For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { hstack, stack, vstack } from "styled-system/patterns";
@@ -20,6 +21,7 @@ import { toaster } from "~/components/ui/toast";
 import { PlaylistService } from "~/modules/client/playlist/service/playlist";
 import {
 	getPlaylistDetailsServerFn,
+	triggerPlaylistSyncServerFn,
 	updatePlaylistServerFn,
 } from "~/modules/server/playlist/functions";
 
@@ -47,9 +49,40 @@ function PlaylistDetails() {
 	const search = Route.useSearch();
 	const data = Route.useLoaderData();
 	const [isUpdating, setIsUpdating] = createSignal(false);
+	const [isSyncing, setIsSyncing] = createSignal(false);
 
 	const playlist = () => data().playlist;
 	const invocations = () => data().invocations;
+
+	const handleRunSync = async () => {
+		setIsSyncing(true);
+		try {
+			const result = await triggerPlaylistSyncServerFn({
+				data: { playlistId: playlist().id! },
+			});
+			if (result.success) {
+				toaster.success({
+					title: "Sync started",
+					description: "Playlist sync is running in the background",
+				});
+				// Reload page to show the new invocation in the history
+				navigate({ to: ".", reloadDocument: true });
+			} else {
+				toaster.error({
+					title: "Sync failed",
+					description: result.error || "Failed to start sync",
+				});
+			}
+		} catch (error) {
+			toaster.error({
+				title: "Error",
+				description:
+					error instanceof Error ? error.message : "Failed to start sync",
+			});
+		} finally {
+			setIsSyncing(false);
+		}
+	};
 
 	const handleStatusChange = async (newStatus: string) => {
 		setIsUpdating(true);
@@ -292,7 +325,18 @@ function PlaylistDetails() {
 			{/* Playlist Details Card */}
 			<Card.Root class={css({ mb: "6" })}>
 				<Card.Header>
-					<Card.Title>Playlist Configuration</Card.Title>
+					<div class={hstack({ justify: "space-between", w: "full" })}>
+						<Card.Title>Playlist Configuration</Card.Title>
+						<Button
+							variant="solid"
+							size="sm"
+							onClick={handleRunSync}
+							disabled={isSyncing() || playlist().status !== "active"}
+						>
+							<PlayIcon class={css({ w: "4", h: "4", mr: "1" })} />
+							{isSyncing() ? "Starting..." : "Run Now"}
+						</Button>
+					</div>
 				</Card.Header>
 				<Card.Body>
 					<div
