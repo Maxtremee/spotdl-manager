@@ -1,5 +1,5 @@
 import { createListCollection } from "@ark-ui/solid/select";
-import { createFileRoute, Link } from "@tanstack/solid-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/solid-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { PlayIcon } from "lucide-solid";
 import { createSignal, For, Show } from "solid-js";
@@ -50,6 +50,7 @@ function PlaylistDetails() {
 	const params = Route.useParams();
 	const search = Route.useSearch();
 	const data = Route.useLoaderData();
+	const router = useRouter();
 	const [isUpdating, setIsUpdating] = createSignal(false);
 	const [isSyncing, setIsSyncing] = createSignal(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
@@ -95,8 +96,7 @@ function PlaylistDetails() {
 					title: "Sync started",
 					description: "Playlist sync is running in the background",
 				});
-				// Reload page to show the new invocation in the history
-				navigate({ to: ".", reloadDocument: true });
+				router.invalidate();
 			} else {
 				toaster.error({
 					title: "Sync failed",
@@ -128,7 +128,7 @@ function PlaylistDetails() {
 					title: "Status updated",
 					description: `Playlist status changed to ${newStatus}`,
 				});
-				navigate({ to: ".", reloadDocument: true });
+				router.invalidate();
 			} else {
 				toaster.error({
 					title: "Update failed",
@@ -169,7 +169,7 @@ function PlaylistDetails() {
 					title: "Format updated",
 					description: `Download format changed to ${newFormat.toUpperCase()}`,
 				});
-				navigate({ to: ".", reloadDocument: true });
+				router.invalidate();
 			} else {
 				toaster.error({
 					title: "Update failed",
@@ -209,7 +209,7 @@ function PlaylistDetails() {
 					title: "Quality updated",
 					description: `Download quality changed to ${newQuality}`,
 				});
-				navigate({ to: ".", reloadDocument: true });
+				router.invalidate();
 			} else {
 				toaster.error({
 					title: "Update failed",

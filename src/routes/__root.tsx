@@ -12,6 +12,7 @@ import { css } from "styled-system/css";
 import { stack } from "styled-system/patterns";
 
 import { Nav } from "~/components/nav";
+import { Toaster } from "~/components/ui/toast";
 import styleCss from "../styles.css?url";
 
 export const Route = createRootRouteWithContext()({
@@ -61,6 +62,7 @@ function RootComponent() {
 			</head>
 			<body class={css({ colorPalette: "grass" })}>
 				<HeadContent />
+				<Toaster />
 				<div
 					class={css({
 						display: { base: "block", md: "grid" },
