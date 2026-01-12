@@ -1,6 +1,6 @@
 import { createForm } from "@tanstack/solid-form";
 import { createFileRoute, useRouter } from "@tanstack/solid-router";
-import { For } from "solid-js";
+import { For, Index } from "solid-js";
 import { css } from "styled-system/css";
 import { stack, vstack } from "styled-system/patterns";
 import { Button } from "~/components/ui/button";
@@ -21,6 +21,12 @@ import {
 	testWebhookServerFn,
 	updateWebhookSettingsServerFn,
 } from "~/modules/server/webhooks/functions";
+
+const WebhookEventItems = WebhookEventTypes.map((type) => ({
+	value: type,
+	label: WebhookEventLabels[type],
+	description: WebhookEventDescriptions[type],
+}));
 
 export const Route = createFileRoute("/settings")({
 	loader: () => getWebhookSettingsServerFn(),
@@ -172,26 +178,66 @@ function Settings() {
 									>
 										Select which events should trigger Discord notifications
 									</Text>
-									<div class={vstack({ gap: "3", alignItems: "stretch" })}>
-										<For each={WebhookEventTypes}>
-											{(eventType) => (
-												<EventCheckbox
-													eventType={eventType}
-													checked={field().state.value.includes(eventType)}
-													onCheckedChange={(checked) => {
-														const current = field().state.value;
-														if (checked) {
-															field().handleChange([...current, eventType]);
-														} else {
-															field().handleChange(
-																current.filter((e) => e !== eventType),
-															);
-														}
+									<Checkbox.Group
+										defaultValue={field().state.value}
+										onValueChange={(value) =>
+											field().handleChange(value as WebhookEventType[])
+										}
+										class={vstack({ gap: "3", alignItems: "stretch" })}
+									>
+										<Index each={WebhookEventItems}>
+											{(item) => (
+												<Checkbox.Root
+													ids={{
+														label: item().value,
+														hiddenInput: item().value,
 													}}
-												/>
+													class={css({
+														display: "flex",
+														alignItems: "flex-start",
+														gap: "3",
+														p: "3",
+														borderRadius: "md",
+														borderWidth: "1px",
+														borderColor: "border",
+														cursor: "pointer",
+														_hover: {
+															bg: "gray.surface.bg",
+														},
+													})}
+												>
+													<Checkbox.HiddenInput />
+													<Checkbox.Control
+														class={css({
+															mt: "0.5",
+														})}
+													>
+														<Checkbox.Indicator />
+													</Checkbox.Control>
+													<div
+														class={vstack({
+															gap: "0.5",
+															alignItems: "flex-start",
+														})}
+													>
+														<Checkbox.Label
+															class={css({ fontWeight: "medium" })}
+														>
+															{item().label}
+														</Checkbox.Label>
+														<Text
+															class={css({
+																color: "fg.muted",
+																fontSize: "sm",
+															})}
+														>
+															{item().description}
+														</Text>
+													</div>
+												</Checkbox.Root>
 											)}
-										</For>
-									</div>
+										</Index>
+									</Checkbox.Group>
 								</Field.Root>
 							)}
 						</form.Field>
@@ -237,6 +283,10 @@ interface EventCheckboxProps {
 function EventCheckbox(props: EventCheckboxProps) {
 	return (
 		<Checkbox.Root
+			ids={{
+				label: props.eventType,
+				hiddenInput: props.eventType,
+			}}
 			checked={props.checked}
 			onCheckedChange={(details) =>
 				props.onCheckedChange(details.checked === true)
