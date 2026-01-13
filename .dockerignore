@@ -1,6 +1,5 @@
 # Node modules (installed in container)
 node_modules/
-pnpm-lock.yaml
 
 # Build outputs
 .output/
@@ -44,7 +43,9 @@ CLAUDE.md
 LICENSE
 
 # Docker files themselves
-Dockerfile*
+Dockerfile
+Dockerfile.dev
+Dockerfile.prod
 docker-compose*.yml
 .dockerignore
 

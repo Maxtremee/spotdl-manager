@@ -2,8 +2,7 @@
 # Multi-stage build for optimized image size
 
 # Stage 1: Dependencies and Build
-FROM node:20-buster-slim AS builder
-
+FROM node:22-slim
 WORKDIR /app
 
 # Install build dependencies
@@ -32,7 +31,7 @@ RUN pnpm prepare && pnpm build
 RUN pnpm install --prod --frozen-lockfile
 
 # Stage 2: Production Runtime
-FROM node:20-buster-slim
+FROM node:22-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

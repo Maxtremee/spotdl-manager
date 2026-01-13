@@ -1,11 +1,13 @@
 # Development Dockerfile with spotdl and all dependencies
-FROM node:20-buster-slim
+FROM node:22-slim
 
 # Install system dependencies required for spotdl and build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-dev \
+    python3-venv \
+    pipx \
     ffmpeg \
     git \
     sqlite3 \
@@ -15,8 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
-# Install spotdl globally
-RUN pip3 install --no-cache-dir spotdl
+# Install spotdl using pipx (recommended for Python CLI apps)
+RUN pipx install spotdl && pipx ensurepath
+
+# Add pipx binaries to PATH
+ENV PATH="/root/.local/bin:$PATH"
 
 # Verify spotdl installation
 RUN spotdl --version
@@ -27,18 +32,16 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Set working directory
 WORKDIR /app
 
-# Copy package files first for better layer caching
+# Copy package files first for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
+
+# Copy all source files (needed for panda to resolve ~/theme imports)
+COPY panda.config.ts tsconfig.json ./
+COPY src ./src
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
-
-# Copy panda config for codegen
-COPY panda.config.ts tsconfig.json postcss.config.cjs ./
-COPY src/theme ./src/theme
-
-# Run panda codegen
-RUN pnpm prepare
 
 # Expose development port
 EXPOSE 3000
@@ -46,5 +49,5 @@ EXPOSE 3000
 # Set environment to development
 ENV NODE_ENV=development
 
-# Default command: run dev server with host binding for Docker
-CMD ["pnpm", "dev", "--", "--host", "0.0.0.0"]
+# Start dev server with host binding for container access
+CMD ["pnpm", "dev", "--host", "0.0.0.0"]

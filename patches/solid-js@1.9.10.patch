@@ -1,0 +1,13 @@
+diff --git a/web/dist/server.js b/web/dist/server.js
+index c7ebce45a8ece2f77aae13a9c95d17bd43036e5b..8042b93e99c220363febad57e79bbadf7880e27b 100644
+--- a/web/dist/server.js
++++ b/web/dist/server.js
+@@ -757,7 +757,7 @@ function ssrSpread(props, isSVG, skipChildren) {
+   return result;
+ }
+ function notSup() {
+-  throw new Error("Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.");
++  console.warn("Client-only API called on the server side. Run client-only code in onMount, or conditionally run client-only component with <Show>.");
+ }
+ 
+ const isServer = true;

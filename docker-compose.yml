@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -9,19 +7,27 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      # Mount entire project for live code reloading
-      - .:/app
-      # Use named volume for node_modules to avoid host/container conflicts
-      - node_modules:/app/node_modules
-      # Use named volume for styled-system (generated files)
-      - styled_system:/app/styled-system
+      # Mount source code for live reloading
+      - ./src:/app/src
+      - ./server:/app/server
+      - ./public:/app/public
+      - ./drizzle:/app/drizzle
+      - ./test:/app/test
+      # Config files
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./panda.config.ts:/app/panda.config.ts
+      - ./drizzle.config.ts:/app/drizzle.config.ts
+      - ./biome.jsonc:/app/biome.jsonc
+      - ./postcss.config.cjs:/app/postcss.config.cjs
+      - ./components.json:/app/components.json
+      - ./app.config.ts:/app/app.config.ts
       # Persist data directory (logs, sync files, downloads)
       - ./data:/app/data
       # Persist database
-      - ./local.db:/app/local.db
+      - ./data.db:/app/data.db
     environment:
       # Database location
-      - DATABASE_URL=file:./local.db
+      - DB_FILE_NAME=./data.db
       # Node environment
       - NODE_ENV=development
       # Optional: App title
@@ -32,9 +38,3 @@ services:
     tty: true
     # Restart policy for development
     restart: unless-stopped
-
-volumes:
-  # Named volume for node_modules
-  node_modules:
-  # Named volume for styled-system
-  styled_system:
