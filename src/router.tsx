@@ -1,5 +1,6 @@
 import { createRouter } from "@tanstack/solid-router";
 import { GenericError } from "./components/generic-error";
+import { NotFound } from "./components/not-found";
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 
@@ -9,6 +10,7 @@ export const getRouter = () => {
 		routeTree,
 		scrollRestoration: true,
 		defaultErrorComponent: GenericError,
+		defaultNotFoundComponent: NotFound,
 		defaultViewTransition: true,
 	});
 	return router;
