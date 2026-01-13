@@ -32,6 +32,9 @@ importers:
       '@tanstack/zod-adapter':
         specifier: 1.147.3
         version: 1.147.3(@tanstack/react-router@1.147.3(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(zod@4.3.5)
+      '@types/nprogress':
+        specifier: 0.2.3
+        version: 0.2.3
       better-sqlite3:
         specifier: 12.6.0
         version: 12.6.0
@@ -53,6 +56,9 @@ importers:
       nitro:
         specifier: latest
         version: 3.0.1-alpha.1(better-sqlite3@12.6.0)(chokidar@4.0.3)(drizzle-orm@0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@12.6.0))(rollup@4.55.1)(vite@7.3.1(@types/node@25.0.6)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0))
+      nprogress:
+        specifier: 0.2.0
+        version: 0.2.0
       pino:
         specifier: 10.1.1
         version: 10.1.1
@@ -1740,6 +1746,9 @@ packages:
 
   '@types/node@25.0.6':
     resolution: {integrity: sha512-NNu0sjyNxpoiW3YuVFfNz7mxSQ+S4X2G28uqg2s+CzoqoQjLPsWSbsFFyztIAqt2vb8kfEAsJNepMGPTxFDx3Q==}
+
+  '@types/nprogress@0.2.3':
+    resolution: {integrity: sha512-k7kRA033QNtC+gLc4VPlfnue58CM1iQLgn1IMAU8VPHGOj7oIHPp9UlhedEnD/Gl8evoCjwkZjlBORtZ3JByUA==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -3431,6 +3440,9 @@ packages:
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
+
+  nprogress@0.2.0:
+    resolution: {integrity: sha512-I19aIingLgR1fmhftnbWWO3dXc0hSxqHQHQb3H8m+K3TnEn/iSeTZZOyvKXWqQESMwuUVnatlCnZdLBZZt2VSA==}
 
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
@@ -6361,6 +6373,8 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/nprogress@0.2.3': {}
+
   '@types/react-dom@19.2.3(@types/react@19.2.8)':
     dependencies:
       '@types/react': 19.2.8
@@ -8616,6 +8630,8 @@ snapshots:
   node-releases@2.0.27: {}
 
   normalize-path@3.0.0: {}
+
+  nprogress@0.2.0: {}
 
   nth-check@2.1.1:
     dependencies:

@@ -3,3 +3,23 @@
 :root {
 	--global-font-body: "Roboto Mono", monospace;
 }
+
+/* NProgress theming */
+#nprogress {
+	pointer-events: none;
+}
+#nprogress .bar {
+	background: var(--colors-grass-9);
+	position: fixed;
+	z-index: 2000;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 2px;
+}
+#nprogress .peg {
+	display: none;
+}
+#nprogress .spinner {
+	display: none;
+}
