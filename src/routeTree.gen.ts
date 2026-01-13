@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as IndexRouteImport } from './routes/index'
@@ -16,6 +17,11 @@ import { Route as LibraryAddRouteImport } from './routes/library_.add'
 import { Route as LibraryPlaylistIdRouteImport } from './routes/library_.$playlistId'
 import { Route as LibraryPlaylistIdLogsLogIdRouteImport } from './routes/library_.$playlistId_.logs_.$logId'
 
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/status': typeof StatusRoute
   '/library/$playlistId': typeof LibraryPlaylistIdRoute
   '/library/add': typeof LibraryAddRoute
   '/library/$playlistId/logs/$logId': typeof LibraryPlaylistIdLogsLogIdRoute
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/status': typeof StatusRoute
   '/library/$playlistId': typeof LibraryPlaylistIdRoute
   '/library/add': typeof LibraryAddRoute
   '/library/$playlistId/logs/$logId': typeof LibraryPlaylistIdLogsLogIdRoute
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
   '/settings': typeof SettingsRoute
+  '/status': typeof StatusRoute
   '/library_/$playlistId': typeof LibraryPlaylistIdRoute
   '/library_/add': typeof LibraryAddRoute
   '/library_/$playlistId_/logs_/$logId': typeof LibraryPlaylistIdLogsLogIdRoute
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/settings'
+    | '/status'
     | '/library/$playlistId'
     | '/library/add'
     | '/library/$playlistId/logs/$logId'
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/settings'
+    | '/status'
     | '/library/$playlistId'
     | '/library/add'
     | '/library/$playlistId/logs/$logId'
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/library'
     | '/settings'
+    | '/status'
     | '/library_/$playlistId'
     | '/library_/add'
     | '/library_/$playlistId_/logs_/$logId'
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
   SettingsRoute: typeof SettingsRoute
+  StatusRoute: typeof StatusRoute
   LibraryPlaylistIdRoute: typeof LibraryPlaylistIdRoute
   LibraryAddRoute: typeof LibraryAddRoute
   LibraryPlaylistIdLogsLogIdRoute: typeof LibraryPlaylistIdLogsLogIdRoute
@@ -111,6 +124,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -160,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
   SettingsRoute: SettingsRoute,
+  StatusRoute: StatusRoute,
   LibraryPlaylistIdRoute: LibraryPlaylistIdRoute,
   LibraryAddRoute: LibraryAddRoute,
   LibraryPlaylistIdLogsLogIdRoute: LibraryPlaylistIdLogsLogIdRoute,

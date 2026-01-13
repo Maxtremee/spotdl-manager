@@ -336,7 +336,7 @@ describe("PlaylistScheduler", () => {
 			const cronInstance = mockCronInstances.get("0 6 * * *");
 			expect(cronInstance).toBeDefined();
 
-			await cronInstance!.callback();
+			await cronInstance?.callback();
 
 			expect(mockInvocationCreate).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -372,11 +372,11 @@ describe("PlaylistScheduler", () => {
 			expect(cronInstance).toBeDefined();
 
 			// Trigger twice quickly
-			const promise1 = cronInstance!.callback();
-			cronInstance!.callback(); // Second call should be skipped
+			const promise1 = cronInstance?.callback();
+			cronInstance?.callback(); // Second call should be skipped
 
 			// Resolve the first run
-			resolveRun!({
+			resolveRun?.({
 				status: "success",
 				exitCode: 0,
 				finishedAt: new Date().toISOString(),
@@ -397,7 +397,7 @@ describe("PlaylistScheduler", () => {
 			const cronInstance = mockCronInstances.get("0 6 * * *");
 			expect(cronInstance).toBeDefined();
 
-			await cronInstance!.callback();
+			await cronInstance?.callback();
 
 			expect(mockInvocationUpdate).toHaveBeenCalledWith(
 				"mock-uuid-123",
