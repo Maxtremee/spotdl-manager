@@ -1,31 +1,19 @@
-import { createListCollection } from "@ark-ui/solid/select";
-import { createFileRoute, Link, useRouter } from "@tanstack/solid-router";
+import { createFileRoute, useRouter } from "@tanstack/solid-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { PlayIcon } from "lucide-solid";
-import { createSignal, For, Show } from "solid-js";
-import { css } from "styled-system/css";
-import { hstack, stack, vstack } from "styled-system/patterns";
+import { createSignal } from "solid-js";
 import { z } from "zod";
-import { Badge } from "~/components/ui/badge";
-import * as Breadcrumb from "~/components/ui/breadcrumb";
-import { Button } from "~/components/ui/button";
-import * as Card from "~/components/ui/card";
-import * as Dialog from "~/components/ui/dialog";
-import * as Field from "~/components/ui/field";
-import { Link as UILink } from "~/components/ui/link";
-import type { RootProps as PaginationRootProps } from "~/components/ui/pagination";
-import * as Pagination from "~/components/ui/pagination";
-import * as Select from "~/components/ui/select";
-import * as Table from "~/components/ui/table";
-import { Text } from "~/components/ui/text";
-import { toaster } from "~/components/ui/toast";
-import { PlaylistService } from "~/modules/client/playlist/service/playlist";
+import { DeletePlaylistDialog } from "~/modules/client/playlist/components/delete-playlist-dialog";
+import { PlaylistConfigCard } from "~/modules/client/playlist/components/playlist-config-card";
+import { PlaylistHeader } from "~/modules/client/playlist/components/playlist-header";
+import { SyncHistoryCard } from "~/modules/client/playlist/components/sync-history-card";
 import {
-	deletePlaylistServerFn,
-	getPlaylistDetailsServerFn,
-	triggerPlaylistSyncServerFn,
-	updatePlaylistServerFn,
-} from "~/modules/server/playlist/functions";
+	deletePlaylist,
+	triggerSync,
+	updateFormat,
+	updateQuality,
+	updateStatus,
+} from "~/modules/client/playlist/service/playlist-actions";
+import { getPlaylistDetailsServerFn } from "~/modules/server/playlist/functions";
 
 const searchSchema = z.object({
 	invocationsPage: fallback(z.int().positive(), 1).default(1),
@@ -47,7 +35,6 @@ export const Route = createFileRoute("/library_/$playlistId")({
 
 function PlaylistDetails() {
 	const navigate = Route.useNavigate();
-	const params = Route.useParams();
 	const search = Route.useSearch();
 	const data = Route.useLoaderData();
 	const router = useRouter();
@@ -60,678 +47,107 @@ function PlaylistDetails() {
 
 	const handleDeletePlaylist = async () => {
 		setDeleteDialogOpen(false);
-		try {
-			const result = await deletePlaylistServerFn({
-				data: { id: playlist().id! },
-			});
-			if (result.success) {
-				toaster.success({
-					title: "Playlist deleted",
-					description: "The playlist and all its sync logs have been removed",
-				});
-				navigate({ to: "/library" });
-			} else {
-				toaster.error({
-					title: "Delete failed",
-					description: result.error || "Failed to delete playlist",
-				});
-			}
-		} catch (error) {
-			toaster.error({
-				title: "Error",
-				description:
-					error instanceof Error ? error.message : "Failed to delete playlist",
-			});
-		}
+		await deletePlaylist(playlist().id!, {
+			onSuccess: () => navigate({ to: "/library" }),
+		});
 	};
 
 	const handleRunSync = async () => {
 		setIsSyncing(true);
-		try {
-			const result = await triggerPlaylistSyncServerFn({
-				data: { playlistId: playlist().id! },
-			});
-			if (result.success) {
-				toaster.success({
-					title: "Sync started",
-					description: "Playlist sync is running in the background",
-				});
-				router.invalidate();
-			} else {
-				toaster.error({
-					title: "Sync failed",
-					description: result.error || "Failed to start sync",
-				});
-			}
-		} catch (error) {
-			toaster.error({
-				title: "Error",
-				description:
-					error instanceof Error ? error.message : "Failed to start sync",
-			});
-		} finally {
-			setIsSyncing(false);
-		}
+		await triggerSync(playlist().id!, {
+			onSuccess: () => router.invalidate(),
+		});
+		setIsSyncing(false);
 	};
 
 	const handleStatusChange = async (newStatus: string) => {
 		setIsUpdating(true);
-		try {
-			const result = await updatePlaylistServerFn({
-				data: {
-					id: playlist().id!,
-					status: newStatus as "active" | "paused" | "archived" | "error",
-				},
-			});
-			if (result.success) {
-				toaster.success({
-					title: "Status updated",
-					description: `Playlist status changed to ${newStatus}`,
-				});
-				router.invalidate();
-			} else {
-				toaster.error({
-					title: "Update failed",
-					description: result.error || "Failed to update status",
-				});
-			}
-		} catch (error) {
-			toaster.error({
-				title: "Error",
-				description:
-					error instanceof Error ? error.message : "Failed to update status",
-			});
-		} finally {
-			setIsUpdating(false);
-		}
+		await updateStatus(
+			playlist().id!,
+			newStatus as "active" | "paused" | "archived",
+			{
+				onSuccess: () => router.invalidate(),
+			},
+		);
+		setIsUpdating(false);
 	};
 
 	const handleFormatChange = async (newFormat: string) => {
 		setIsUpdating(true);
-		try {
-			const result = await updatePlaylistServerFn({
-				data: {
-					id: playlist().id!,
-					flags: {
-						format: newFormat as
-							| "mp3"
-							| "flac"
-							| "ogg"
-							| "m4a"
-							| "opus"
-							| "vorbis"
-							| "wav",
-					},
-				},
-			});
-			if (result.success) {
-				toaster.success({
-					title: "Format updated",
-					description: `Download format changed to ${newFormat.toUpperCase()}`,
-				});
-				router.invalidate();
-			} else {
-				toaster.error({
-					title: "Update failed",
-					description: result.error || "Failed to update format",
-				});
-			}
-		} catch (error) {
-			toaster.error({
-				title: "Error",
-				description:
-					error instanceof Error ? error.message : "Failed to update format",
-			});
-		} finally {
-			setIsUpdating(false);
-		}
+		await updateFormat(
+			playlist().id!,
+			newFormat as "mp3" | "flac" | "ogg" | "m4a" | "opus" | "vorbis" | "wav",
+			{
+				onSuccess: () => router.invalidate(),
+			},
+		);
+		setIsUpdating(false);
 	};
 
 	const handleQualityChange = async (newQuality: string) => {
 		setIsUpdating(true);
-		try {
-			const result = await updatePlaylistServerFn({
-				data: {
-					id: playlist().id!,
-					flags: {
-						quality: newQuality as
-							| "worst"
-							| "low"
-							| "medium"
-							| "high"
-							| "very_high"
-							| "lossless",
-					},
-				},
-			});
-			if (result.success) {
-				toaster.success({
-					title: "Quality updated",
-					description: `Download quality changed to ${newQuality}`,
-				});
-				router.invalidate();
-			} else {
-				toaster.error({
-					title: "Update failed",
-					description: result.error || "Failed to update quality",
-				});
-			}
-		} catch (error) {
-			toaster.error({
-				title: "Error",
-				description:
-					error instanceof Error ? error.message : "Failed to update quality",
-			});
-		} finally {
-			setIsUpdating(false);
-		}
+		await updateQuality(
+			playlist().id!,
+			newQuality as
+				| "worst"
+				| "low"
+				| "medium"
+				| "high"
+				| "very_high"
+				| "lossless",
+			{
+				onSuccess: () => router.invalidate(),
+			},
+		);
+		setIsUpdating(false);
 	};
 
-	const handlePageChange = (details: { page: number }) => {
+	const handlePageChange = (page: number) => {
 		navigate({
-			search: (prev) => ({
-				...prev,
-				invocationsPage: details.page,
-			}),
+			search: (prev) => ({ ...prev, invocationsPage: page }),
 		});
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
 
-	const statusOptions = [
-		{ label: "Active", value: "active" },
-		{ label: "Paused", value: "paused" },
-		{ label: "Archived", value: "archived" },
-	];
-
-	const formatOptions = [
-		{ label: "MP3", value: "mp3" },
-		{ label: "FLAC", value: "flac" },
-		{ label: "OGG", value: "ogg" },
-		{ label: "M4A", value: "m4a" },
-		{ label: "Opus", value: "opus" },
-		{ label: "Vorbis", value: "vorbis" },
-		{ label: "WAV", value: "wav" },
-	];
-
-	const qualityOptions = [
-		{ label: "Worst", value: "worst" },
-		{ label: "Low", value: "low" },
-		{ label: "Medium", value: "medium" },
-		{ label: "High", value: "high" },
-		{ label: "Very High", value: "very_high" },
-		{ label: "Lossless", value: "lossless" },
-	];
-
-	const formatInvocationStatus = (
-		status: "running" | "success" | "failed" | "canceled",
-	) => {
-		const labels = {
-			running: "Running",
-			success: "Success",
-			failed: "Failed",
-			canceled: "Canceled",
-		};
-		return labels[status];
-	};
-
-	const formatDuration = (startedAt: Date, finishedAt: Date | null): string => {
-		if (!finishedAt) {
-			return "In progress...";
-		}
-		const durationMs = finishedAt.getTime() - startedAt.getTime();
-		const seconds = Math.floor(durationMs / 1000);
-		if (seconds < 60) {
-			return `${seconds}s`;
-		}
-		const minutes = Math.floor(seconds / 60);
-		const remainingSeconds = seconds % 60;
-		return `${minutes}m ${remainingSeconds}s`;
-	};
-
 	return (
 		<>
-			{/* Header with breadcrumb navigation */}
-			<header class={stack({ gap: "4", mb: "6" })}>
-				<Breadcrumb.Root>
-					<Breadcrumb.List>
-						<Breadcrumb.Item>
-							<Link
-								to="/"
-								class={css({
-									color: "fg.muted",
-									fontSize: "sm",
-									"&:hover": { color: "fg.default" },
-									textDecoration: "none",
-								})}
-							>
-								Home
-							</Link>
-						</Breadcrumb.Item>
-						<Breadcrumb.Separator />
-						<Breadcrumb.Item>
-							<Link
-								to="/library"
-								class={css({
-									color: "fg.muted",
-									fontSize: "sm",
-									"&:hover": { color: "fg.default" },
-									textDecoration: "none",
-								})}
-							>
-								Library
-							</Link>
-						</Breadcrumb.Item>
-						<Breadcrumb.Separator />
-						<Breadcrumb.Item>
-							<span
-								class={css({
-									color: "fg.default",
-									fontSize: "sm",
-									fontWeight: "medium",
-								})}
-							>
-								{playlist().name}
-							</span>
-						</Breadcrumb.Item>
-					</Breadcrumb.List>
-				</Breadcrumb.Root>
-				<Text
-					as="h1"
-					class={css({
-						color: "fg.default",
-						fontSize: { base: "2xl", md: "3xl" },
-					})}
-				>
-					{playlist().name}
-				</Text>
-				<div class={hstack({ gap: "2" })}>
-					<Badge>
-						{PlaylistService.formatSourceType(playlist().source.type)}
-					</Badge>
-					<Badge>{PlaylistService.formatStatus(playlist().status)}</Badge>
-				</div>
-			</header>
+			<PlaylistHeader
+				name={playlist().name}
+				sourceType={playlist().source.type}
+				status={playlist().status}
+			/>
 
-			{/* Playlist Details Card */}
-			<Card.Root class={css({ mb: "6" })}>
-				<Card.Header>
-					<div class={hstack({ justify: "space-between", w: "full" })}>
-						<Card.Title>Playlist Configuration</Card.Title>
-						<div class={hstack({ gap: "2" })}>
-							<Button
-								variant="solid"
-								size="sm"
-								onClick={handleRunSync}
-								disabled={isSyncing() || playlist().status !== "active"}
-							>
-								<PlayIcon class={css({ w: "4", h: "4", mr: "1" })} />
-								{isSyncing() ? "Starting..." : "Run Now"}
-							</Button>
-							<Dialog.Root
-								open={deleteDialogOpen()}
-								onOpenChange={(details) => setDeleteDialogOpen(details.open)}
-							>
-								<Dialog.Trigger
-									asChild={(props) => (
-										<Button {...props()} variant="outline" size="sm">
-											Delete
-										</Button>
-									)}
-								/>
-								<Dialog.Backdrop />
-								<Dialog.Positioner>
-									<Dialog.Content>
-										<Dialog.Header>
-											<Dialog.Title>Delete Playlist</Dialog.Title>
-										</Dialog.Header>
-										<Dialog.Body>
-											<Dialog.Description>
-												Are you sure you want to delete "{playlist().name}"?
-												This will remove the playlist and all its sync logs.
-												This action cannot be undone.
-											</Dialog.Description>
-										</Dialog.Body>
-										<Dialog.Footer
-											class={hstack({ gap: "3", justify: "flex-end" })}
-										>
-											<Dialog.ActionTrigger
-												asChild={(props) => (
-													<Button {...props()} variant="outline">
-														Cancel
-													</Button>
-												)}
-											/>
-											<Button variant="solid" onClick={handleDeletePlaylist}>
-												Delete
-											</Button>
-										</Dialog.Footer>
-									</Dialog.Content>
-								</Dialog.Positioner>
-							</Dialog.Root>
-						</div>
-					</div>
-				</Card.Header>
-				<Card.Body>
-					<div
-						class={css({
-							display: "grid",
-							gridTemplateColumns: { base: "1fr", md: "repeat(2, 1fr)" },
-							gap: "6",
-						})}
-					>
-						{/* Left column - Info */}
-						<div class={vstack({ gap: "4", alignItems: "stretch" })}>
-							<Field.Root>
-								<Field.Label>Source URL</Field.Label>
-								<UILink
-									class={css({
-										fontSize: "sm",
-										color: "fg.muted",
-										wordBreak: "break-all",
-									})}
-									href={playlist().source.url}
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									{playlist().source.url}
-								</UILink>
-							</Field.Root>
+			<PlaylistConfigCard
+				sourceUrl={playlist().source.url}
+				outputDir={playlist().outputDir}
+				schedule={playlist().schedule}
+				status={playlist().status}
+				format={playlist().flags?.format || "mp3"}
+				quality={playlist().flags?.quality || "high"}
+				isUpdating={isUpdating}
+				isSyncing={isSyncing}
+				canSync={playlist().status === "active"}
+				onStatusChange={handleStatusChange}
+				onFormatChange={handleFormatChange}
+				onQualityChange={handleQualityChange}
+				onRunSync={handleRunSync}
+				deleteDialog={
+					<DeletePlaylistDialog
+						open={deleteDialogOpen}
+						onOpenChange={setDeleteDialogOpen}
+						playlistName={playlist().name}
+						onConfirm={handleDeletePlaylist}
+					/>
+				}
+			/>
 
-							<Field.Root>
-								<Field.Label>Output Directory</Field.Label>
-								<Text class={css({ fontSize: "sm", color: "fg.muted" })}>
-									{playlist().outputDir}
-								</Text>
-							</Field.Root>
-
-							<Field.Root>
-								<Field.Label>Schedule</Field.Label>
-								<Text class={css({ fontSize: "sm", color: "fg.muted" })}>
-									<Show when={playlist().schedule?.enabled} fallback="Disabled">
-										{playlist().schedule?.schedule.type === "cron"
-											? // @ts-expect-error
-												`Cron: ${playlist().schedule?.schedule.cron}`
-											: // @ts-expect-error
-												`Every ${playlist().schedule?.schedule.minutes} minutes`}
-									</Show>
-								</Text>
-							</Field.Root>
-						</div>
-
-						{/* Right column - Controls */}
-						<div class={vstack({ gap: "4", alignItems: "stretch" })}>
-							<Field.Root>
-								<Field.Label>Status</Field.Label>
-								<Select.Root
-									collection={createListCollection({ items: statusOptions })}
-									value={[playlist().status]}
-									onValueChange={(details) => {
-										if (details.value[0] !== playlist().status) {
-											handleStatusChange(details.value[0]);
-										}
-									}}
-									disabled={isUpdating()}
-									positioning={{ sameWidth: true }}
-								>
-									<Select.Control>
-										<Select.Trigger>
-											<Select.ValueText placeholder="Select status" />
-										</Select.Trigger>
-									</Select.Control>
-									<Select.Positioner>
-										<Select.Content>
-											<For each={statusOptions}>
-												{(item) => (
-													<Select.Item item={item}>
-														<Select.ItemText>{item.label}</Select.ItemText>
-													</Select.Item>
-												)}
-											</For>
-										</Select.Content>
-									</Select.Positioner>
-								</Select.Root>
-							</Field.Root>
-
-							<Field.Root>
-								<Field.Label>Format</Field.Label>
-								<Select.Root
-									collection={createListCollection({ items: formatOptions })}
-									value={[playlist().flags?.format || "mp3"]}
-									onValueChange={(details) => {
-										if (details.value[0] !== playlist().flags?.format) {
-											handleFormatChange(details.value[0]);
-										}
-									}}
-									disabled={isUpdating()}
-									positioning={{ sameWidth: true }}
-								>
-									<Select.Control>
-										<Select.Trigger>
-											<Select.ValueText placeholder="Select format" />
-										</Select.Trigger>
-									</Select.Control>
-									<Select.Positioner>
-										<Select.Content>
-											<For each={formatOptions}>
-												{(item) => (
-													<Select.Item item={item}>
-														<Select.ItemText>{item.label}</Select.ItemText>
-													</Select.Item>
-												)}
-											</For>
-										</Select.Content>
-									</Select.Positioner>
-								</Select.Root>
-							</Field.Root>
-
-							<Field.Root>
-								<Field.Label>Quality</Field.Label>
-								<Select.Root
-									collection={createListCollection({ items: qualityOptions })}
-									value={[playlist().flags?.quality || "high"]}
-									onValueChange={(details) => {
-										if (details.value[0] !== playlist().flags?.quality) {
-											handleQualityChange(details.value[0]);
-										}
-									}}
-									disabled={isUpdating()}
-									positioning={{ sameWidth: true }}
-								>
-									<Select.Control>
-										<Select.Trigger>
-											<Select.ValueText placeholder="Select quality" />
-										</Select.Trigger>
-									</Select.Control>
-									<Select.Positioner>
-										<Select.Content>
-											<For each={qualityOptions}>
-												{(item) => (
-													<Select.Item item={item}>
-														<Select.ItemText>{item.label}</Select.ItemText>
-													</Select.Item>
-												)}
-											</For>
-										</Select.Content>
-									</Select.Positioner>
-								</Select.Root>
-							</Field.Root>
-						</div>
-					</div>
-				</Card.Body>
-			</Card.Root>
-
-			{/* Invocations Card */}
-			<Card.Root>
-				<Card.Header>
-					<div class={hstack({ justify: "space-between", w: "full" })}>
-						<div>
-							<Card.Title>
-								Sync History ({invocations().pagination.total || 0})
-							</Card.Title>
-							<Text class={css({ color: "fg.muted", fontSize: "sm", mt: "1" })}>
-								Page {search().invocationsPage} of{" "}
-								{invocations().pagination.pages || 1}
-							</Text>
-						</div>
-					</div>
-				</Card.Header>
-
-				<Card.Body class={css({ overflow: "auto" })}>
-					<Show
-						when={invocations().items.length > 0}
-						fallback={
-							<div class={vstack({ gap: "2", py: "8", alignItems: "center" })}>
-								<Text
-									as="h3"
-									class={css({
-										fontSize: "lg",
-										fontWeight: "semibold",
-										color: "fg.default",
-									})}
-								>
-									No sync history
-								</Text>
-								<Text
-									class={css({
-										color: "fg.muted",
-										maxW: "md",
-										textAlign: "center",
-									})}
-								>
-									This playlist has not been synced yet. Sync history will
-									appear here after the first run.
-								</Text>
-							</div>
-						}
-					>
-						<Table.Root class={css({ w: "full" })}>
-							<Table.Head>
-								<Table.Row>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Started
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Status
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Duration
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Exit Code
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Summary
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Actions
-									</Table.Header>
-								</Table.Row>
-							</Table.Head>
-							<Table.Body>
-								<For each={invocations().items}>
-									{(invocation) => (
-										<Table.Row
-											class={css({
-												"&:hover": { bgColor: "bg.muted" },
-											})}
-										>
-											<Table.Cell class={css({ fontSize: "sm" })}>
-												{PlaylistService.formatDate(invocation.startedAt)}
-											</Table.Cell>
-											<Table.Cell>
-												<Badge>
-													{formatInvocationStatus(invocation.status)}
-												</Badge>
-											</Table.Cell>
-											<Table.Cell
-												class={css({ fontSize: "sm", color: "fg.muted" })}
-											>
-												{formatDuration(
-													invocation.startedAt,
-													invocation.finishedAt,
-												)}
-											</Table.Cell>
-											<Table.Cell
-												class={css({ fontSize: "sm", color: "fg.muted" })}
-											>
-												{invocation.exitCode ?? "-"}
-											</Table.Cell>
-											<Table.Cell
-												class={css({ fontSize: "sm", color: "fg.muted" })}
-											>
-												{invocation.summary
-													? PlaylistService.truncateText(invocation.summary, 50)
-													: "-"}
-											</Table.Cell>
-											<Table.Cell>
-												<Link
-													to="/library/$playlistId/logs/$logId"
-													params={{
-														playlistId: params().playlistId,
-														logId: invocation.id,
-													}}
-												>
-													<Button variant="subtle" size="xs">
-														View Log
-													</Button>
-												</Link>
-											</Table.Cell>
-										</Table.Row>
-									)}
-								</For>
-							</Table.Body>
-						</Table.Root>
-					</Show>
-				</Card.Body>
-
-				{/* Pagination */}
-				<Show when={(invocations().pagination.pages ?? 0) > 1}>
-					<Card.Footer
-						class={css({ borderTop: "1px solid token(colors.border.default)" })}
-					>
-						<Pagination.Root
-							count={invocations().pagination.total || 0}
-							pageSize={invocations().pagination.limit || 10}
-							page={search().invocationsPage as PaginationRootProps["page"]}
-							onPageChange={handlePageChange}
-							class={css({ w: "full" })}
-						>
-							<div class={hstack({ gap: "2", justify: "center", w: "full" })}>
-								<Pagination.PrevTrigger>
-									<Button variant="outline" size="sm">
-										Previous
-									</Button>
-								</Pagination.PrevTrigger>
-
-								<Pagination.Items
-									render={(page) => (
-										<Pagination.Item
-											{...page}
-											class={css({
-												"&[data-selected]": { fontWeight: "bold" },
-											})}
-										>
-											<Button
-												variant={page.selected ? "solid" : "outline"}
-												size="sm"
-											>
-												{page.value}
-											</Button>
-										</Pagination.Item>
-									)}
-									ellipsis={<span>...</span>}
-								/>
-
-								<Pagination.NextTrigger>
-									<Button variant="outline" size="sm">
-										Next
-									</Button>
-								</Pagination.NextTrigger>
-							</div>
-						</Pagination.Root>
-					</Card.Footer>
-				</Show>
-			</Card.Root>
+			<SyncHistoryCard
+				playlistId={playlist().id!}
+				invocations={invocations().items}
+				pagination={invocations().pagination}
+				currentPage={search().invocationsPage}
+				onPageChange={handlePageChange}
+			/>
 		</>
 	);
 }

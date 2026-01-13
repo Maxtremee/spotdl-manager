@@ -1,24 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/solid-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { For, Show } from "solid-js";
+import { Show } from "solid-js";
 import { css } from "styled-system/css";
-import { hstack, stack, vstack } from "styled-system/patterns";
+import { hstack, stack } from "styled-system/patterns";
 import { z } from "zod";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
 import type { RootProps as PaginationRootProps } from "~/components/ui/pagination";
 import * as Pagination from "~/components/ui/pagination";
-import * as Table from "~/components/ui/table";
 import { Text } from "~/components/ui/text";
+import { EmptyPlaylistsState } from "~/modules/client/library/components/empty-playlists-state";
+import { LibraryInfoPanel } from "~/modules/client/library/components/library-info-panel";
 import {
 	LibraryFilters,
 	type LibraryFiltersValue,
 } from "~/modules/client/library/components/library-filters";
-import { PlaylistService } from "~/modules/client/playlist/service/playlist";
+import { PlaylistTable } from "~/modules/client/library/components/playlist-table";
 import { listPlaylistsServerFn } from "~/modules/server/playlist/functions";
 
-// Define search params schema with Zod
 const playlistSearchSchema = z.object({
 	page: fallback(z.int().positive(), 1).default(1),
 	search: fallback(z.string(), "").default(""),
@@ -61,17 +60,13 @@ function Library() {
 
 	const handlePageChange = (details: { page: number }) => {
 		navigate({
-			search: (prev) => ({
-				...prev,
-				page: details.page,
-			}),
+			search: (prev) => ({ ...prev, page: details.page }),
 		});
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	};
 
 	return (
 		<>
-			{/* Keep the existing Library header unchanged */}
 			<header class={stack({ gap: "2", mb: "6" })}>
 				<Text
 					as="h1"
@@ -93,7 +88,6 @@ function Library() {
 				onSubmit={handleFilterSubmit}
 			/>
 
-			{/* Main Content */}
 			<Card.Root>
 				<Card.Header>
 					<div class={hstack({ justify: "space-between", w: "full" })}>
@@ -114,112 +108,13 @@ function Library() {
 				<Card.Body class={css({ overflow: "auto" })}>
 					<Show
 						when={playlists() && playlists().items.length > 0}
-						fallback={
-							<div class={vstack({ gap: "2", py: "8", alignItems: "center" })}>
-								<Text
-									as="h3"
-									class={css({
-										fontSize: "lg",
-										fontWeight: "semibold",
-										color: "fg.default",
-									})}
-								>
-									No playlists
-								</Text>
-								<Text
-									class={css({
-										color: "fg.muted",
-										maxW: "md",
-										textAlign: "center",
-									})}
-								>
-									No playlists found. Create a new playlist to start downloading
-									songs from Spotify.
-								</Text>
-								<Link to="/library/add">
-									<Button variant="solid" class={css({ mt: "4" })}>
-										+ Add playlist
-									</Button>
-								</Link>
-							</div>
-						}
+						fallback={<EmptyPlaylistsState />}
 					>
-						<Table.Root class={css({ w: "full" })}>
-							<Table.Head>
-								<Table.Row>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Name
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Type
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Status
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Output
-									</Table.Header>
-									<Table.Header class={css({ fontWeight: "semibold" })}>
-										Updated
-									</Table.Header>
-								</Table.Row>
-							</Table.Head>
-							<Table.Body>
-								<For each={playlists().items || []}>
-									{(playlist) => (
-										<Table.Row
-											class={css({
-												"&:hover": { bgColor: "bg.muted" },
-												transition: "colors 200ms",
-											})}
-										>
-											<Table.Cell class={css({ fontWeight: "500" })}>
-												<Link
-													to="/library/$playlistId"
-													params={{ playlistId: playlist.id ?? "" }}
-													class={css({
-														color: "fg.default",
-														textDecoration: "none",
-														"&:hover": { textDecoration: "underline" },
-													})}
-												>
-													{PlaylistService.truncateText(playlist.name, 40)}
-												</Link>
-											</Table.Cell>
-											<Table.Cell>
-												<Badge>
-													{PlaylistService.formatSourceType(
-														playlist.source.type,
-													)}
-												</Badge>
-											</Table.Cell>
-											<Table.Cell>
-												<Badge>
-													{PlaylistService.formatStatus(playlist.status)}
-												</Badge>
-											</Table.Cell>
-											<Table.Cell
-												class={css({ fontSize: "sm", color: "fg.muted" })}
-											>
-												{PlaylistService.truncateText(playlist.outputDir, 30)}
-											</Table.Cell>
-											<Table.Cell
-												class={css({ fontSize: "sm", color: "fg.muted" })}
-											>
-												{playlist.updatedAt
-													? PlaylistService.formatDate(playlist.updatedAt)
-													: "N/A"}
-											</Table.Cell>
-										</Table.Row>
-									)}
-								</For>
-							</Table.Body>
-						</Table.Root>
+						<PlaylistTable items={playlists().items || []} />
 					</Show>
 				</Card.Body>
 
-				{/* Pagination */}
-				<Show when={playlists().pagination.pages ?? 0 > 1}>
+				<Show when={(playlists().pagination.pages ?? 0) > 1}>
 					<Card.Footer
 						class={css({ borderTop: "1px solid token(colors.border.default)" })}
 					>
@@ -233,7 +128,7 @@ function Library() {
 							<div class={hstack({ gap: "2", justify: "center", w: "full" })}>
 								<Pagination.PrevTrigger>
 									<Button variant="outline" size="sm">
-										← Previous
+										Previous
 									</Button>
 								</Pagination.PrevTrigger>
 
@@ -258,7 +153,7 @@ function Library() {
 
 								<Pagination.NextTrigger>
 									<Button variant="outline" size="sm">
-										Next →
+										Next
 									</Button>
 								</Pagination.NextTrigger>
 							</div>
@@ -267,25 +162,7 @@ function Library() {
 				</Show>
 			</Card.Root>
 
-			{/* Info Panel */}
-			<Card.Root class={css({ mt: "6", bgColor: "bg.muted" })}>
-				<Card.Header>
-					<Card.Title>Information</Card.Title>
-				</Card.Header>
-				<Card.Body>
-					<ul class={stack({ gap: "2", color: "fg.muted", fontSize: "sm" })}>
-						<li>
-							• Each playlist will automatically sync according to the set
-							schedule
-						</li>
-						<li>
-							• You can edit quality and format settings for each playlist
-						</li>
-						<li>• Track download progress in the playlist details view</li>
-						<li>• Archive old playlists to keep things clean</li>
-					</ul>
-				</Card.Body>
-			</Card.Root>
+			<LibraryInfoPanel />
 		</>
 	);
 }
