@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { getDb, schema } from "../db";
+import type { NewInvocationRow } from "../db/schema";
 import type {
 	PlaylistSyncCanceledEvent,
 	PlaylistSyncCompletedEvent,
 	PlaylistSyncFailedEvent,
 	PlaylistSyncStartedEvent,
 } from "../events/schema";
-import { getDb, schema } from "../db";
-import type { NewInvocationRow } from "../db/schema";
 
 /**
  * Emit sync.started event with outbox pattern
@@ -87,8 +87,7 @@ export async function emitSyncCompleted(params: {
 
 	db.transaction((tx) => {
 		// 1. Update invocation record
-		tx
-			.update(schema.invocations)
+		tx.update(schema.invocations)
 			.set({
 				finishedAt: params.finishedAt,
 				exitCode: params.exitCode,
@@ -142,8 +141,7 @@ export async function emitSyncFailed(params: {
 
 	db.transaction((tx) => {
 		// 1. Update invocation record
-		tx
-			.update(schema.invocations)
+		tx.update(schema.invocations)
 			.set({
 				finishedAt: new Date(),
 				exitCode: params.exitCode ?? -1,
@@ -190,8 +188,7 @@ export async function emitSyncCanceled(params: {
 
 	db.transaction((tx) => {
 		// 1. Update invocation record
-		tx
-			.update(schema.invocations)
+		tx.update(schema.invocations)
 			.set({
 				finishedAt: new Date(),
 				exitCode: -2,
