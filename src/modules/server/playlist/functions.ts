@@ -203,14 +203,15 @@ const listInvocationsInputSchema = z.object({
  */
 export const listInvocationsServerFn = createServerFn({ method: "GET" })
 	.inputValidator(listInvocationsInputSchema)
-	.handler(async ({ data }) =>
-		InvocationRepository.listInvocations({
+	.handler(async ({ data }) => {
+		const invocationRepository = new InvocationRepository();
+		return invocationRepository.listInvocations({
 			playlistId: data.playlistId,
 			page: data.page,
 			limit: data.limit,
 			status: data.status,
-		}),
-	);
+		});
+	});
 
 // Define input schema for get playlist details (playlist + invocations)
 const getPlaylistDetailsInputSchema = z.object({
@@ -230,7 +231,8 @@ export const getPlaylistDetailsServerFn = createServerFn({ method: "GET" })
 			throw new Error(`Playlist with id ${data.id} not found`);
 		}
 
-		const invocations = await InvocationRepository.listInvocations({
+		const invocationRepository = new InvocationRepository();
+		const invocations = await invocationRepository.listInvocations({
 			playlistId: data.id,
 			page: data.invocationsPage,
 			limit: data.invocationsLimit,
@@ -254,7 +256,8 @@ const getInvocationLogInputSchema = z.object({
 export const getInvocationLogServerFn = createServerFn({ method: "GET" })
 	.inputValidator(getInvocationLogInputSchema)
 	.handler(async ({ data }) => {
-		const invocation = await InvocationRepository.getById(data.invocationId);
+		const invocationRepository = new InvocationRepository();
+		const invocation = await invocationRepository.getById(data.invocationId);
 		if (!invocation) {
 			return {
 				success: false,

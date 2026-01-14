@@ -29,21 +29,22 @@ function sinceFromWindow(
 export const getStatusSummaryServerFn = createServerFn({ method: "GET" })
 	.inputValidator(summaryInputSchema)
 	.handler(async ({ data }) => {
+		const invocationRepository = new InvocationRepository();
 		const since = sinceFromWindow(data.window);
 
 		// Windowed summary
-		const windowSummary = await InvocationRepository.getSummary({
+		const windowSummary = await invocationRepository.getSummary({
 			since,
 			playlistId: data.playlistId,
 		});
 
 		// All-time summary (for baseline)
-		const allSummary = await InvocationRepository.getSummary({
+		const allSummary = await invocationRepository.getSummary({
 			playlistId: data.playlistId,
 		});
 
 		// Recent invocations list
-		const recent = await InvocationRepository.listRecent({
+		const recent = await invocationRepository.listRecent({
 			page: data.page,
 			limit: data.limit,
 			playlistId: data.playlistId,
@@ -55,7 +56,7 @@ export const getStatusSummaryServerFn = createServerFn({ method: "GET" })
 		const playlistIds = Array.from(
 			new Set(recent.items.map((r) => r.playlistId)),
 		);
-		const playlists = await InvocationRepository.getPlaylistNames(playlistIds);
+		const playlists = await invocationRepository.getPlaylistNames(playlistIds);
 
 		// Compute success rate helper
 		const totalCount = windowSummary.counts.reduce(

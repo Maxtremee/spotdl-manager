@@ -13,7 +13,8 @@ const logger = Logger.get("SpotdlSettings");
 export const getSpotdlSettingsServerFn = createServerFn({
 	method: "GET",
 }).handler(async () => {
-	return SpotdlRepository.getSettings();
+	const spotdlRepository = new SpotdlRepository();
+	return spotdlRepository.getSettings();
 });
 
 /**
@@ -47,7 +48,8 @@ export const updateSpotdlSettingsServerFn = createServerFn({ method: "POST" })
 				}
 			}
 
-			const result = await SpotdlRepository.saveSettings({
+			const spotdlRepository = new SpotdlRepository();
+			const result = await spotdlRepository.saveSettings({
 				cookiesFile,
 			});
 
@@ -86,7 +88,8 @@ export const uploadCookiesFileServerFn = createServerFn({ method: "POST" })
 			await fs.writeFile(cookiesPath, data.content, "utf8");
 
 			// Update settings with the new cookies file path
-			await SpotdlRepository.saveSettings({
+			const spotdlRepository = new SpotdlRepository();
+			await spotdlRepository.saveSettings({
 				cookiesFile: cookiesPath,
 			});
 
@@ -111,7 +114,8 @@ export const deleteCookiesFileServerFn = createServerFn({
 	method: "POST",
 }).handler(async () => {
 	try {
-		const settings = await SpotdlRepository.getSettings();
+		const spotdlRepository = new SpotdlRepository();
+		const settings = await spotdlRepository.getSettings();
 		if (settings.cookiesFile) {
 			try {
 				await fs.unlink(settings.cookiesFile);
@@ -128,7 +132,7 @@ export const deleteCookiesFileServerFn = createServerFn({
 		}
 
 		// Clear the cookies file path from settings
-		await SpotdlRepository.saveSettings({
+		await spotdlRepository.saveSettings({
 			cookiesFile: undefined,
 		});
 

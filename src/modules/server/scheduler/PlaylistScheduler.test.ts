@@ -12,6 +12,7 @@ const {
 	mockInvocationCreate,
 	mockInvocationUpdate,
 	mockSpotdlRun,
+	mockSpotdlGetSettings,
 } = vi.hoisted(() => ({
 	mockCronInstances: new Map<string, MockCronInstance>(),
 	mockDbSelect: vi.fn(),
@@ -29,6 +30,7 @@ const {
 			summary: "Downloaded 5 songs",
 		}),
 	),
+	mockSpotdlGetSettings: vi.fn(() => Promise.resolve({ cookiesFile: null })),
 }));
 
 // Mock croner - must be before imports
@@ -65,18 +67,33 @@ vi.mock("../db", () => ({
 
 // Mock the InvocationRepository
 vi.mock("../invocation/repository", () => ({
-	InvocationRepository: {
-		create: mockInvocationCreate,
-		update: mockInvocationUpdate,
-	},
+	InvocationRepository: vi.fn(function (this: {
+		create: typeof mockInvocationCreate;
+		update: typeof mockInvocationUpdate;
+	}) {
+		this.create = mockInvocationCreate;
+		this.update = mockInvocationUpdate;
+	}),
+}));
+
+// Mock the SpotdlRepository
+vi.mock("../spotdl/repository", () => ({
+	SpotdlRepository: vi.fn(function (this: {
+		getSettings: typeof mockSpotdlGetSettings;
+	}) {
+		this.getSettings = mockSpotdlGetSettings;
+	}),
 }));
 
 // Mock the SpotdlInvocator
-vi.mock("../spotdl/repository/SpotdlInvocator", () => {
+vi.mock("../spotdl/SpotdlInvocator", () => {
 	const SpotdlInvocatorMock = vi.fn(function (this: {
 		run: typeof mockSpotdlRun;
+		getLogPath: (playlistId: string, startedAt: Date) => string;
 	}) {
 		this.run = mockSpotdlRun;
+		this.getLogPath = (playlistId: string, startedAt: Date) =>
+			`/logs/${playlistId}-${startedAt.toISOString()}.txt`;
 	});
 
 	return { SpotdlInvocator: SpotdlInvocatorMock };
@@ -376,6 +393,7 @@ describe("PlaylistScheduler", () => {
 			cronInstance?.callback(); // Second call should be skipped
 
 			// Resolve the first run
+			// @ts-expect-error resolveRun is set in the mock
 			resolveRun?.({
 				status: "success",
 				exitCode: 0,
