@@ -81,12 +81,11 @@ All inputs validated with Zod. Schemas live in `src/modules/*/schema/`. Server f
 
 ## Database
 
-SQLite with Drizzle ORM. Single `playlists` table with fields for source configuration, spotdl flags, scheduling, and status tracking. Database file: `data.db`.
+SQLite with Drizzle ORM. Single `playlists` table with fields for source configuration, spotdl flags, scheduling, and status tracking. Database file: `/data/db.sqlite`.
 
 ## Environment Variables
 
 ```
-DB_FILE_NAME="./data.db"    # SQLite path
 SERVER_URL=                 # Optional base URL
 VITE_APP_TITLE="spotdl-manager"
 ```

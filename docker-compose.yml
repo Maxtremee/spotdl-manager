@@ -27,7 +27,7 @@ services:
       - ./data.db:/app/data.db
     environment:
       # Database location
-      - DB_FILE_NAME=./data.db
+
       # Node environment
       - NODE_ENV=development
       # Optional: App title

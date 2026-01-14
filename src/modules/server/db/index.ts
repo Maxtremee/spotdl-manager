@@ -9,8 +9,7 @@ let db: ReturnType<typeof drizzle> | null = null;
  */
 export function getDb() {
 	if (!db) {
-		// biome-ignore lint/style/noNonNullAssertion: env
-		db = drizzle(process.env.DB_FILE_NAME!, { schema });
+		db = drizzle("data/db.sqlite", { schema });
 	}
 	return db;
 }
