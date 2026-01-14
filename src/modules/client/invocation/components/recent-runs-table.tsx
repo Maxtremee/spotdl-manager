@@ -7,11 +7,11 @@ import type { RootProps as PaginationRootProps } from "~/components/ui/paginatio
 import * as Pagination from "~/components/ui/pagination";
 import * as Table from "~/components/ui/table";
 import { Text } from "~/components/ui/text";
-import { formatDuration } from "~/modules/client/invocation/service/duration";
 import {
-	StatusBadge,
 	type InvocationStatus,
+	StatusBadge,
 } from "~/modules/client/invocation/components/status-badge";
+import { formatDuration } from "~/modules/client/invocation/service/duration";
 
 interface RecentRun {
 	id: string;
@@ -144,50 +144,48 @@ export function RecentRunsTable(props: RecentRunsTableProps) {
 			</Card.Body>
 
 			<Show when={props.pagination && (props.pagination.pages ?? 0) > 1}>
-				{(pagination) => (
-					<Card.Footer
-						class={css({ borderTop: "1px solid token(colors.border.default)" })}
+				<Card.Footer
+					class={css({ borderTop: "1px solid token(colors.border.default)" })}
+				>
+					<Pagination.Root
+						count={props.pagination?.total || 0}
+						pageSize={props.pagination?.limit || 20}
+						page={props.currentPage as PaginationRootProps["page"]}
+						onPageChange={handlePageChange}
+						class={css({ w: "full" })}
 					>
-						<Pagination.Root
-							count={pagination().total || 0}
-							pageSize={pagination().limit || 20}
-							page={props.currentPage as PaginationRootProps["page"]}
-							onPageChange={handlePageChange}
-							class={css({ w: "full" })}
-						>
-							<div class={hstack({ gap: "2", justify: "center", w: "full" })}>
-								<Pagination.PrevTrigger>
-									<Button variant="outline" size="sm">
-										Previous
-									</Button>
-								</Pagination.PrevTrigger>
-								<Pagination.Items
-									render={(page) => (
-										<Pagination.Item
-											{...page}
-											class={css({
-												"&[data-selected]": { fontWeight: "bold" },
-											})}
+						<div class={hstack({ gap: "2", justify: "center", w: "full" })}>
+							<Pagination.PrevTrigger>
+								<Button variant="outline" size="sm">
+									Previous
+								</Button>
+							</Pagination.PrevTrigger>
+							<Pagination.Items
+								render={(page) => (
+									<Pagination.Item
+										{...page}
+										class={css({
+											"&[data-selected]": { fontWeight: "bold" },
+										})}
+									>
+										<Button
+											variant={page.selected ? "solid" : "outline"}
+											size="sm"
 										>
-											<Button
-												variant={page.selected ? "solid" : "outline"}
-												size="sm"
-											>
-												{page.value}
-											</Button>
-										</Pagination.Item>
-									)}
-									ellipsis={<span>...</span>}
-								/>
-								<Pagination.NextTrigger>
-									<Button variant="outline" size="sm">
-										Next
-									</Button>
-								</Pagination.NextTrigger>
-							</div>
-						</Pagination.Root>
-					</Card.Footer>
-				)}
+											{page.value}
+										</Button>
+									</Pagination.Item>
+								)}
+								ellipsis={<span>...</span>}
+							/>
+							<Pagination.NextTrigger>
+								<Button variant="outline" size="sm">
+									Next
+								</Button>
+							</Pagination.NextTrigger>
+						</div>
+					</Pagination.Root>
+				</Card.Footer>
 			</Show>
 		</Card.Root>
 	);

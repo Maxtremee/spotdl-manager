@@ -7,6 +7,7 @@ import { getDb, schema } from "../db";
 import type { PlaylistRow } from "../db/schema";
 import { getEventBus } from "../events";
 import { InvocationRepository } from "../invocation/repository";
+import { SpotdlRepository } from "../spotdl/repository";
 import { SpotdlInvocator } from "../spotdl/SpotdlInvocator";
 
 /**
@@ -15,13 +16,23 @@ import { SpotdlInvocator } from "../spotdl/SpotdlInvocator";
  */
 export class PlaylistScheduler {
 	private readonly tasks: Map<string, Cron> = new Map();
-	private readonly invocator: SpotdlInvocator;
+	private invocator: SpotdlInvocator;
 	private readonly runningPlaylists: Set<string> = new Set();
 	private readonly logger: AppLogger;
 
 	constructor(logger?: AppLogger) {
 		this.invocator = new SpotdlInvocator();
 		this.logger = logger ?? Logger.get("PlaylistScheduler");
+	}
+
+	/**
+	 * Load spotdl settings and reinitialize invocator with cookies if configured
+	 */
+	private async loadSpotdlSettings(): Promise<void> {
+		const settings = await SpotdlRepository.getSettings();
+		this.invocator = new SpotdlInvocator({
+			cookiesFile: settings.cookiesFile,
+		});
 	}
 
 	/**
@@ -288,6 +299,9 @@ export class PlaylistScheduler {
 	async initialize(): Promise<void> {
 		this.logger.info("Initializing playlist scheduler...");
 
+		// Load spotdl settings (including cookies file)
+		await this.loadSpotdlSettings();
+
 		const playlists = await this.getScheduledPlaylists();
 		this.logger.info(
 			{ count: playlists.length },
@@ -306,6 +320,9 @@ export class PlaylistScheduler {
 	 */
 	async reload(): Promise<void> {
 		this.logger.info("Reloading playlist schedules...");
+
+		// Reload spotdl settings
+		await this.loadSpotdlSettings();
 
 		// Stop all current tasks
 		for (const [playlistId] of this.tasks) {

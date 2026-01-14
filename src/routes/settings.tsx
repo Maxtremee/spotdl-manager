@@ -1,6 +1,6 @@
 import { createForm } from "@tanstack/solid-form";
 import { createFileRoute, useRouter } from "@tanstack/solid-router";
-import { Index } from "solid-js";
+import { createSignal, Index } from "solid-js";
 import { css } from "styled-system/css";
 import { stack, vstack } from "styled-system/patterns";
 import { Button } from "~/components/ui/button";
@@ -17,6 +17,11 @@ import {
 	WebhookEventTypes,
 } from "~/modules/client/webhooks";
 import {
+	deleteCookiesFileServerFn,
+	getSpotdlSettingsServerFn,
+	uploadCookiesFileServerFn,
+} from "~/modules/server/spotdl/functions";
+import {
 	getWebhookSettingsServerFn,
 	testWebhookServerFn,
 	updateWebhookSettingsServerFn,
@@ -29,18 +34,26 @@ const WebhookEventItems = WebhookEventTypes.map((type) => ({
 }));
 
 export const Route = createFileRoute("/settings")({
-	loader: () => getWebhookSettingsServerFn(),
+	loader: async () => {
+		const [webhookSettings, spotdlSettings] = await Promise.all([
+			getWebhookSettingsServerFn(),
+			getSpotdlSettingsServerFn(),
+		]);
+		return { webhookSettings, spotdlSettings };
+	},
 	component: Settings,
 });
 
 function Settings() {
-	const settings = Route.useLoaderData();
+	const data = Route.useLoaderData();
 	const router = useRouter();
+	const [uploadingCookies, setUploadingCookies] = createSignal(false);
+	const [deletingCookies, setDeletingCookies] = createSignal(false);
 
 	const form = createForm(() => ({
 		defaultValues: {
-			url: settings().url ?? "",
-			enabledEvents: settings().enabledEvents,
+			url: data().webhookSettings.url ?? "",
+			enabledEvents: data().webhookSettings.enabledEvents,
 		},
 		onSubmit: async ({ value }) => {
 			try {
@@ -103,6 +116,71 @@ function Settings() {
 				description:
 					error instanceof Error ? error.message : "Failed to send test",
 			});
+		}
+	};
+
+	const handleCookiesUpload = async (
+		event: Event & { currentTarget: HTMLInputElement },
+	) => {
+		const file = event.currentTarget.files?.[0];
+		if (!file) {
+			return;
+		}
+
+		setUploadingCookies(true);
+		try {
+			const content = await file.text();
+			const result = await uploadCookiesFileServerFn({ data: { content } });
+
+			if (result.success) {
+				toaster.success({
+					title: "Cookies uploaded",
+					description: "Cookies file has been saved successfully",
+				});
+				router.invalidate();
+			} else {
+				toaster.error({
+					title: "Upload failed",
+					description: result.error || "Failed to upload cookies file",
+				});
+			}
+		} catch (error) {
+			toaster.error({
+				title: "Error",
+				description:
+					error instanceof Error ? error.message : "Failed to upload cookies",
+			});
+		} finally {
+			setUploadingCookies(false);
+			event.currentTarget.value = "";
+		}
+	};
+
+	const handleDeleteCookies = async () => {
+		setDeletingCookies(true);
+		try {
+			const result = await deleteCookiesFileServerFn();
+
+			if (result.success) {
+				toaster.success({
+					title: "Cookies deleted",
+					description: "Cookies file has been removed",
+				});
+				router.invalidate();
+			} else {
+				toaster.error({
+					title: "Delete failed",
+					description: result.error || "Failed to delete cookies file",
+				});
+			}
+		} catch (error) {
+			toaster.error({
+				title: "Error",
+				description:
+					error instanceof Error ? error.message : "Failed to delete cookies",
+			});
+		} finally {
+			setDeletingCookies(false);
 		}
 	};
 
@@ -268,6 +346,77 @@ function Settings() {
 							)}
 						</form.Subscribe>
 					</form>
+				</Card.Body>
+			</Card.Root>
+
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Spotdl Cookies</Card.Title>
+					<Text class={css({ color: "fg.muted" })}>
+						Upload a cookies file to download in better quality. Export cookies
+						from your browser using a cookies extension.
+					</Text>
+				</Card.Header>
+
+				<Card.Body>
+					<div class={vstack({ gap: "4", alignItems: "stretch" })}>
+						<Field.Root>
+							<Field.Label>Cookies File</Field.Label>
+							<div class={stack({ gap: "2", direction: "row" })}>
+								{data().spotdlSettings.cookiesFile ? (
+									<>
+										<Input
+											value={data().spotdlSettings.cookiesFile}
+											readonly
+											class={css({ flex: 1 })}
+										/>
+										<Button
+											type="button"
+											variant="outline"
+											onClick={handleDeleteCookies}
+											loading={deletingCookies()}
+										>
+											Delete
+										</Button>
+									</>
+								) : (
+									<label
+										class={css({
+											flex: 1,
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											borderWidth: "1px",
+											borderStyle: "dashed",
+											borderColor: "border",
+											borderRadius: "md",
+											p: "4",
+											cursor: "pointer",
+											_hover: {
+												bg: "gray.surface.bg",
+											},
+										})}
+									>
+										<input
+											type="file"
+											accept=".txt"
+											onChange={handleCookiesUpload}
+											class={css({ display: "none" })}
+										/>
+										<Text class={css({ color: "fg.muted" })}>
+											{uploadingCookies()
+												? "Uploading..."
+												: "Click to upload cookies.txt"}
+										</Text>
+									</label>
+								)}
+							</div>
+							<Field.HelperText>
+								Export cookies from your browser (e.g., using "Get cookies.txt
+								LOCALLY" extension) and upload the cookies.txt file here
+							</Field.HelperText>
+						</Field.Root>
+					</div>
 				</Card.Body>
 			</Card.Root>
 		</>

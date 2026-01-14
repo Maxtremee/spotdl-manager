@@ -43,6 +43,7 @@ export type SpotdlInvocatorOptions = {
 	binaryPath?: string;
 	logsDir?: string;
 	syncDir?: string;
+	cookiesFile?: string;
 	env?: NodeJS.ProcessEnv;
 };
 
@@ -50,6 +51,7 @@ export class SpotdlInvocator {
 	private readonly binaryPath: string;
 	private readonly logsDir: string;
 	private readonly syncDir: string;
+	private readonly cookiesFile?: string;
 	private readonly env: NodeJS.ProcessEnv;
 
 	constructor(options?: SpotdlInvocatorOptions) {
@@ -58,6 +60,7 @@ export class SpotdlInvocator {
 			options?.logsDir ?? path.resolve(process.cwd(), "data", "logs");
 		this.syncDir =
 			options?.syncDir ?? path.resolve(process.cwd(), "data", "sync");
+		this.cookiesFile = options?.cookiesFile;
 		this.env = options?.env ?? process.env;
 	}
 
@@ -73,6 +76,11 @@ export class SpotdlInvocator {
 		}
 
 		args.push("--output", req.outputDir);
+
+		// Add cookies file if configured
+		if (this.cookiesFile) {
+			args.push("--cookie-file", this.cookiesFile);
+		}
 
 		const { flags } = req;
 		if (flags?.format) {
@@ -137,6 +145,11 @@ export class SpotdlInvocator {
 		// spotdl sync command with --save-file creates the sync file
 		const args = ["sync", req.sourceUrl, "--save-file", syncFilePath];
 		args.push("--output", req.outputDir);
+
+		// Add cookies file if configured
+		if (this.cookiesFile) {
+			args.push("--cookie-file", this.cookiesFile);
+		}
 
 		const { flags } = req;
 		if (flags?.format) {

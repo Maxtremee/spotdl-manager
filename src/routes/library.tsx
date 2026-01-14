@@ -10,11 +10,11 @@ import type { RootProps as PaginationRootProps } from "~/components/ui/paginatio
 import * as Pagination from "~/components/ui/pagination";
 import { Text } from "~/components/ui/text";
 import { EmptyPlaylistsState } from "~/modules/client/library/components/empty-playlists-state";
-import { LibraryInfoPanel } from "~/modules/client/library/components/library-info-panel";
 import {
 	LibraryFilters,
 	type LibraryFiltersValue,
 } from "~/modules/client/library/components/library-filters";
+import { LibraryInfoPanel } from "~/modules/client/library/components/library-info-panel";
 import { PlaylistTable } from "~/modules/client/library/components/playlist-table";
 import { listPlaylistsServerFn } from "~/modules/server/playlist/functions";
 
