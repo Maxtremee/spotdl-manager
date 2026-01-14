@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { Cron } from "croner";
 import { and, eq } from "drizzle-orm";
+import { Cron } from "croner";
 import type { AppLogger } from "../../../logger";
 import { Logger } from "../../../logger";
-import { getDb, schema } from "../db";
 import type { PlaylistRow } from "../db/schema";
-import { getEventBus } from "../events";
-import { InvocationRepository } from "../invocation/repository";
+import { getDb, schema } from "../db";
 import { SpotdlInvocator } from "../spotdl/SpotdlInvocator";
+import {
+	emitSyncCanceled,
+	emitSyncCompleted,
+	emitSyncFailed,
+	emitSyncStarted,
+} from "./sync-events";
 
 /**
  * Manages scheduled playlist sync jobs using croner.
@@ -79,39 +83,28 @@ export class PlaylistScheduler {
 		this.runningPlaylists.add(playlist.id);
 		const invocationId = randomUUID();
 		const startedAt = new Date();
-		let createPromise: Promise<unknown> | null = null;
 
 		this.logger.info(
 			{ playlistId: playlist.id, playlistName: playlist.name },
 			"Starting scheduled sync",
 		);
 
-		const eventBus = getEventBus();
-
-		// Emit sync started event
-		await eventBus.emit({
-			type: "playlist.sync.started",
-			payload: {
-				playlistId: playlist.id,
-				playlistName: playlist.name,
-				invocationId,
-				sourceUrl: playlist.sourceUrl,
-				outputDir: playlist.outputDir,
-			},
-		});
-
 		try {
 			// Compute log path upfront so we can read logs while invocation is running
 			const logPath = this.invocator.getLogPath(playlist.id, startedAt);
 
-			createPromise = InvocationRepository.create({
-				id: invocationId,
+			// Emit sync started event (creates invocation in transaction)
+			await emitSyncStarted({
+				invocationId,
 				playlistId: playlist.id,
+				playlistName: playlist.name,
+				sourceUrl: playlist.sourceUrl,
+				outputDir: playlist.outputDir,
 				startedAt,
-				status: "running",
 				logPath,
 			});
 
+			// Run spotdl sync
 			const result = await this.invocator.run({
 				playlistId: playlist.id,
 				sourceUrl: playlist.sourceUrl,
@@ -122,19 +115,7 @@ export class PlaylistScheduler {
 				},
 			});
 
-			await createPromise;
-
-			await InvocationRepository.update(invocationId, {
-				finishedAt: new Date(result.finishedAt),
-				exitCode: result.exitCode,
-				status: result.status,
-				logPath: result.logPath,
-				syncFilePath: result.syncFilePath,
-				summary: result.summary,
-			});
-
-			const finishedAtMs = new Date(result.finishedAt).getTime();
-			const duration = finishedAtMs - startedAt.getTime();
+			const finishedAt = new Date(result.finishedAt);
 
 			this.logger.info(
 				{
@@ -145,42 +126,34 @@ export class PlaylistScheduler {
 				"Completed sync",
 			);
 
+			// Emit appropriate completion event based on status
 			if (result.status === "success") {
-				// Emit appropriate completion event based on status
-				await eventBus.emit({
-					type: "playlist.sync.completed",
-					payload: {
-						playlistId: playlist.id,
-						playlistName: playlist.name,
-						invocationId,
-						duration,
-						exitCode: result.exitCode ?? 0,
-						summary: result.summary,
-						logPath: result.logPath,
-						syncFilePath: result.syncFilePath,
-					},
+				await emitSyncCompleted({
+					invocationId,
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					finishedAt,
+					startedAt,
+					exitCode: result.exitCode ?? 0,
+					summary: result.summary,
+					logPath: result.logPath,
+					syncFilePath: result.syncFilePath,
 				});
 			} else if (result.status === "failed") {
-				await eventBus.emit({
-					type: "playlist.sync.failed",
-					payload: {
-						playlistId: playlist.id,
-						playlistName: playlist.name,
-						invocationId,
-						error: result.summary || "Unknown error",
-						exitCode: result.exitCode ?? undefined,
-						logPath: result.logPath,
-					},
+				await emitSyncFailed({
+					invocationId,
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					error: result.summary || "Unknown error",
+					exitCode: result.exitCode,
+					logPath: result.logPath,
 				});
 			} else if (result.status === "canceled") {
-				await eventBus.emit({
-					type: "playlist.sync.canceled",
-					payload: {
-						playlistId: playlist.id,
-						playlistName: playlist.name,
-						invocationId,
-						reason: result.summary,
-					},
+				await emitSyncCanceled({
+					invocationId,
+					playlistId: playlist.id,
+					playlistName: playlist.name,
+					reason: result.summary,
 				});
 			}
 		} catch (error) {
@@ -189,28 +162,13 @@ export class PlaylistScheduler {
 				"Error syncing playlist",
 			);
 
-			if (createPromise) {
-				await createPromise.catch(() => {});
-			}
-
-			// Update invocation as failed
-			await InvocationRepository.update(invocationId, {
-				finishedAt: new Date(),
-				exitCode: -1,
-				status: "failed",
-				summary: error instanceof Error ? error.message : "Unknown error",
-			});
-
 			// Emit failure event
-			await eventBus.emit({
-				type: "playlist.sync.failed",
-				payload: {
-					playlistId: playlist.id,
-					playlistName: playlist.name,
-					invocationId,
-					error: error instanceof Error ? error.message : "Unknown error",
-					exitCode: -1,
-				},
+			await emitSyncFailed({
+				invocationId,
+				playlistId: playlist.id,
+				playlistName: playlist.name,
+				error: error instanceof Error ? error.message : "Unknown error",
+				exitCode: -1,
 			});
 		} finally {
 			this.runningPlaylists.delete(playlist.id);

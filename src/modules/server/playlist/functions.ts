@@ -7,6 +7,11 @@ import { getDb, schema } from "../db";
 import { InvocationRepository } from "../invocation/repository";
 import { getScheduler } from "../scheduler/PlaylistScheduler";
 import { PlaylistRepository } from "./repository";
+import {
+	emitPlaylistCreated,
+	emitPlaylistDeleted,
+	emitPlaylistUpdated,
+} from "./crud-events";
 
 // Define input schema for list playlists function
 const listPlaylistsInputSchema = z.object({
@@ -47,6 +52,10 @@ export const createPlaylistServerFn = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		try {
 			const result = await PlaylistRepository.createPlaylist(data);
+
+			// Emit playlist.created event via outbox (triggers async scheduler reload)
+			await emitPlaylistCreated(result);
+
 			return { success: true, data: result };
 		} catch (error) {
 			console.error("Failed to create playlist:", error);
@@ -88,10 +97,24 @@ export const deletePlaylistServerFn = createServerFn({ method: "POST" })
 	.inputValidator(deletePlaylistInputSchema)
 	.handler(async ({ data }) => {
 		try {
+			// Get playlist before deletion to capture name and version
+			const playlist = await PlaylistRepository.getPlaylistById(data.id);
+			if (!playlist) {
+				return {
+					success: false,
+					error: `Playlist with id ${data.id} not found`,
+				};
+			}
+
+			// Emit playlist.deleted event via outbox (triggers async scheduler reload)
+			if (!playlist.id) {
+				throw new Error("Playlist ID is required");
+			}
+			await emitPlaylistDeleted(playlist.id, playlist.name, playlist.version);
+
+			// Delete playlist
 			await PlaylistRepository.deletePlaylist(data.id);
-			// Trigger scheduler reload to remove deleted playlist from scheduler
-			const scheduler = getScheduler();
-			await scheduler.reload();
+
 			return { success: true };
 		} catch (error) {
 			console.error("Failed to delete playlist:", error);
@@ -179,6 +202,15 @@ export const updatePlaylistServerFn = createServerFn({ method: "POST" })
 			}
 
 			const result = await PlaylistRepository.updatePlaylist(id, updates);
+
+			// Emit playlist.updated event via outbox (triggers async scheduler reload)
+			await emitPlaylistUpdated(
+				id,
+				result.name,
+				data as Record<string, unknown>,
+				result.version,
+			);
+
 			return { success: true, data: result };
 		} catch (error) {
 			console.error("Failed to update playlist:", error);

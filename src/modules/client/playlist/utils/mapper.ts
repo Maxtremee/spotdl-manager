@@ -34,6 +34,7 @@ export function rowToPlaylist(row: PlaylistRow): Playlist {
 						},
 		},
 		status: row.status,
+		version: row.version,
 		createdAt: new Date(row.createdAt),
 		updatedAt: new Date(row.updatedAt),
 	});
@@ -72,6 +73,7 @@ export function playlistToRow(playlist: Playlist): NewPlaylistRow {
 		scheduleMinutes:
 			schedule.schedule.type === "interval" ? schedule.schedule.minutes : null,
 		status: playlist.status,
+		version: playlist.version ?? 0,
 		createdAt: playlist.createdAt || new Date(),
 		updatedAt: playlist.updatedAt || new Date(),
 	};

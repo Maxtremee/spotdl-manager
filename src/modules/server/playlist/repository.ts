@@ -5,6 +5,7 @@ import {
 	rowToPlaylist,
 } from "~/modules/client/playlist/utils/mapper";
 import { getDb, schema } from "../db";
+import { OptimisticLockError } from "./errors";
 
 export type PaginationParams = {
 	page?: number;
@@ -117,10 +118,11 @@ export const PlaylistRepository = {
 
 	/**
 	 * Create a new playlist
+	 * Sets initial version to 1
 	 */
 	async createPlaylist(playlist: Playlist) {
 		const db = getDb();
-		const row = playlistToRow(playlist);
+		const row = playlistToRow({ ...playlist, version: 1 });
 
 		await db.insert(schema.playlists).values(row);
 
@@ -134,9 +136,17 @@ export const PlaylistRepository = {
 	},
 
 	/**
-	 * Update an existing playlist
+	 * Update an existing playlist with optimistic locking
+	 * @param id - Playlist ID
+	 * @param updates - Partial updates to apply
+	 * @param expectedVersion - Expected current version for optimistic locking
+	 * @throws OptimisticLockError if version mismatch
 	 */
-	async updatePlaylist(id: string, updates: Partial<Playlist>) {
+	async updatePlaylist(
+		id: string,
+		updates: Partial<Playlist>,
+		expectedVersion?: number,
+	) {
 		const db = getDb();
 		const existing = await this.getPlaylistById(id);
 
@@ -144,13 +154,34 @@ export const PlaylistRepository = {
 			throw new Error(`Playlist with id ${id} not found`);
 		}
 
-		const updated = { ...existing, ...updates };
+		// If expectedVersion is provided, verify it matches
+		if (expectedVersion !== undefined && existing.version !== expectedVersion) {
+			throw new OptimisticLockError("playlist", id, expectedVersion);
+		}
+
+		// Use existing version if no expectedVersion provided
+		const versionToCheck = expectedVersion ?? existing.version;
+
+		// Increment version
+		const newVersion = versionToCheck + 1;
+		const updated = { ...existing, ...updates, version: newVersion };
 		const row = playlistToRow(updated);
 
-		await db
+		// Update with version check in WHERE clause
+		const result = await db
 			.update(schema.playlists)
 			.set(row)
-			.where(eq(schema.playlists.id, id));
+			.where(
+				and(
+					eq(schema.playlists.id, id),
+					eq(schema.playlists.version, versionToCheck),
+				),
+			);
+
+		// Verify row was updated (if not, another process modified it)
+		if (result.changes === 0) {
+			throw new OptimisticLockError("playlist", id, versionToCheck);
+		}
 
 		// Query back the updated row to ensure correct types
 		const [updatedRow] = await db

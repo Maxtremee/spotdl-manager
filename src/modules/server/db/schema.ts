@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /**
  * Playlists table schema using Drizzle ORM
@@ -45,6 +45,8 @@ export const playlists = sqliteTable("playlists", {
 	})
 		.default("active")
 		.notNull(),
+	// Version for optimistic locking
+	version: integer("version").default(0).notNull(),
 	// Timestamps
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
@@ -96,3 +98,75 @@ export const globalSettings = sqliteTable("global_settings", {
 
 export type GlobalSettingRow = typeof globalSettings.$inferSelect;
 export type NewGlobalSettingRow = typeof globalSettings.$inferInsert;
+
+/**
+ * Outbox table for transactional event emission
+ * Stores events to be processed and delivered to the event bus
+ */
+export const outbox = sqliteTable(
+	"outbox",
+	{
+		id: text("id").primaryKey().notNull(),
+		aggregateId: text("aggregate_id").notNull(),
+		aggregateType: text("aggregate_type", {
+			enum: ["playlist", "invocation"],
+		}).notNull(),
+		aggregateVersion: integer("aggregate_version").notNull(),
+		eventType: text("event_type").notNull(),
+		eventPayload: text("event_payload", { mode: "json" }).notNull(),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
+		processingAt: integer("processing_at", { mode: "timestamp" }),
+		processedAt: integer("processed_at", { mode: "timestamp" }),
+		status: text("status", {
+			enum: ["pending", "processing", "processed", "failed"],
+		})
+			.default("pending")
+			.notNull(),
+		retryCount: integer("retry_count").default(0).notNull(),
+		lastError: text("last_error"),
+	},
+	(table) => ({
+		statusCreatedIdx: index("outbox_status_created_idx").on(
+			table.status,
+			table.createdAt,
+		),
+		aggregateIdx: index("outbox_aggregate_idx").on(
+			table.aggregateId,
+			table.aggregateVersion,
+		),
+	}),
+);
+
+export type OutboxRow = typeof outbox.$inferSelect;
+export type NewOutboxRow = typeof outbox.$inferInsert;
+
+/**
+ * Outbox archive table for processed events
+ * Events older than 14 days are moved here for retention
+ */
+export const outboxArchive = sqliteTable("outbox_archive", {
+	id: text("id").primaryKey().notNull(),
+	aggregateId: text("aggregate_id").notNull(),
+	aggregateType: text("aggregate_type", {
+		enum: ["playlist", "invocation"],
+	}).notNull(),
+	aggregateVersion: integer("aggregate_version").notNull(),
+	eventType: text("event_type").notNull(),
+	eventPayload: text("event_payload", { mode: "json" }).notNull(),
+	createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+	processingAt: integer("processing_at", { mode: "timestamp" }),
+	processedAt: integer("processed_at", { mode: "timestamp" }),
+	status: text("status", {
+		enum: ["pending", "processing", "processed", "failed"],
+	}).notNull(),
+	retryCount: integer("retry_count").notNull(),
+	lastError: text("last_error"),
+	archivedAt: integer("archived_at", { mode: "timestamp" })
+		.notNull()
+		.default(sql`(unixepoch())`),
+});
+
+export type OutboxArchiveRow = typeof outboxArchive.$inferSelect;
+export type NewOutboxArchiveRow = typeof outboxArchive.$inferInsert;

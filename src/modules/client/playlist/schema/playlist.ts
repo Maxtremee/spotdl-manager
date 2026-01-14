@@ -97,6 +97,12 @@ export const PlaylistSchema = z.object({
 		.enum(["active", "paused", "archived", "error"])
 		.default("active")
 		.describe("Current playlist status"),
+	version: z
+		.number()
+		.int()
+		.min(0)
+		.default(0)
+		.describe("Version for optimistic locking"),
 	createdAt: z.date().optional().describe("Creation timestamp"),
 	updatedAt: z.date().optional().describe("Last update timestamp"),
 });
