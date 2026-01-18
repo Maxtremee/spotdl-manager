@@ -87,7 +87,7 @@ function Settings() {
 
 	const cookiesForm = createForm(() => ({
 		defaultValues: {
-			useCookies: data().spotdlSettings.useCookies,
+			useCookies: data().spotdlSettings.useCookies ?? false,
 		},
 		onSubmit: async ({ value }) => {
 			try {
