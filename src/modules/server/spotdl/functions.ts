@@ -21,7 +21,7 @@ export const getSpotdlSettingsServerFn = createServerFn({
  * Input schema for updating spotdl settings
  */
 const updateSpotdlSettingsInputSchema = z.object({
-	cookiesFile: z.string().optional().or(z.literal("")),
+	useCookies: z.boolean(),
 });
 
 /**
@@ -31,29 +31,12 @@ export const updateSpotdlSettingsServerFn = createServerFn({ method: "POST" })
 	.inputValidator(updateSpotdlSettingsInputSchema)
 	.handler(async ({ data }) => {
 		try {
-			// Convert empty string to undefined for cookiesFile
-			const cookiesFile =
-				data.cookiesFile === "" ? undefined : data.cookiesFile;
-
-			// Validate that the cookies file exists if provided
-			if (cookiesFile) {
-				try {
-					await fs.access(cookiesFile);
-				} catch {
-					logger.warn({ cookiesFile }, "Cookies file does not exist");
-					return {
-						success: false,
-						error: "Cookies file does not exist at the specified path",
-					};
-				}
-			}
-
 			const spotdlRepository = new SpotdlRepository();
 			const result = await spotdlRepository.saveSettings({
-				cookiesFile,
+				useCookies: data.useCookies,
 			});
 
-			logger.info({ cookiesFile }, "Spotdl settings updated");
+			logger.info({ useCookies: data.useCookies }, "Spotdl settings updated");
 			return { success: true, data: result };
 		} catch (error) {
 			logger.error({ error }, "Failed to update spotdl settings");
