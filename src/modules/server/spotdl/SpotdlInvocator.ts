@@ -43,7 +43,7 @@ export type SpotdlInvocatorOptions = {
 	binaryPath?: string;
 	logsDir?: string;
 	syncDir?: string;
-	cookiesFile?: string;
+	useCookies?: boolean;
 	env?: NodeJS.ProcessEnv;
 };
 
@@ -51,7 +51,7 @@ export class SpotdlInvocator {
 	private readonly binaryPath: string;
 	private readonly logsDir: string;
 	private readonly syncDir: string;
-	private readonly cookiesFile?: string;
+	private readonly useCookies: boolean;
 	private readonly env: NodeJS.ProcessEnv;
 
 	constructor(options?: SpotdlInvocatorOptions) {
@@ -60,11 +60,41 @@ export class SpotdlInvocator {
 			options?.logsDir ?? path.resolve(process.cwd(), "data", "logs");
 		this.syncDir =
 			options?.syncDir ?? path.resolve(process.cwd(), "data", "sync");
-		this.cookiesFile = options?.cookiesFile;
+		this.useCookies = options?.useCookies ?? false;
 		this.env = options?.env ?? process.env;
 	}
 
-	private buildArgs(req: RunRequest, syncFilePath?: string): string[] {
+	/**
+	 * Get cookies file path from environment variable and validate it exists
+	 * Throws an error if cookies are enabled but file is not available
+	 */
+	private async getCookiesFile(): Promise<string | undefined> {
+		if (!this.useCookies) {
+			return undefined;
+		}
+
+		const cookiesFile = this.env.SPOTDL_COOKIES_FILE;
+		if (!cookiesFile) {
+			throw new Error(
+				"Cookies are enabled but SPOTDL_COOKIES_FILE environment variable is not set",
+			);
+		}
+
+		// Validate that the file exists
+		try {
+			await fs.access(cookiesFile);
+			return cookiesFile;
+		} catch {
+			throw new Error(
+				`Cookies are enabled but the file does not exist at: ${cookiesFile}`,
+			);
+		}
+	}
+
+	private async buildArgs(
+		req: RunRequest,
+		syncFilePath?: string,
+	): Promise<string[]> {
 		const args: string[] = [];
 
 		if (syncFilePath) {
@@ -77,9 +107,10 @@ export class SpotdlInvocator {
 
 		args.push("--output", req.outputDir);
 
-		// Add cookies file if configured
-		if (this.cookiesFile) {
-			args.push("--cookie-file", this.cookiesFile);
+		// Add cookies file if configured (validates and throws if enabled but not available)
+		const cookiesFile = await this.getCookiesFile();
+		if (cookiesFile) {
+			args.push("--cookie-file", cookiesFile);
 		}
 
 		const { flags } = req;
@@ -146,9 +177,10 @@ export class SpotdlInvocator {
 		const args = ["sync", req.sourceUrl, "--save-file", syncFilePath];
 		args.push("--output", req.outputDir);
 
-		// Add cookies file if configured
-		if (this.cookiesFile) {
-			args.push("--cookie-file", this.cookiesFile);
+		// Add cookies file if configured (validates and throws if enabled but not available)
+		const cookiesFile = await this.getCookiesFile();
+		if (cookiesFile) {
+			args.push("--cookie-file", cookiesFile);
 		}
 
 		const { flags } = req;
@@ -184,7 +216,7 @@ export class SpotdlInvocator {
 			}
 		}
 
-		const args = this.buildArgs(input, syncFilePath);
+		const args = await this.buildArgs(input, syncFilePath);
 
 		// Prepare log file for incremental writing
 		await this.ensureDir(this.logsDir);
