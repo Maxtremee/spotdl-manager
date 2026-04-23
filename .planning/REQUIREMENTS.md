@@ -112,47 +112,56 @@ Which phases cover which requirements. Populated by `gsd-roadmapper`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| AUTH-04 | — | Pending |
-| AUTH-05 | — | Pending |
-| AUTH-06 | — | Pending |
-| AUTH-07 | — | Pending |
-| SCRAPE-01 | — | Pending |
-| SCRAPE-02 | — | Pending |
-| SCRAPE-03 | — | Pending |
-| SCRAPE-04 | — | Pending |
-| SCRAPE-05 | — | Pending |
-| SCRAPE-06 | — | Pending |
-| SCRAPE-07 | — | Pending |
-| TRACK-01 | — | Pending |
-| TRACK-02 | — | Pending |
-| TRACK-03 | — | Pending |
-| TRACK-04 | — | Pending |
-| TRACK-05 | — | Pending |
-| MATCH-01 | — | Pending |
-| MATCH-02 | — | Pending |
-| MATCH-03 | — | Pending |
-| MATCH-04 | — | Pending |
-| DOWNLOAD-01 | — | Pending |
-| DOWNLOAD-02 | — | Pending |
-| DOWNLOAD-03 | — | Pending |
-| DOWNLOAD-04 | — | Pending |
-| DOWNLOAD-05 | — | Pending |
-| DEPLOY-01 | — | Pending |
-| DEPLOY-02 | — | Pending |
-| DEPLOY-03 | — | Pending |
-| CLEANUP-01 | — | Pending |
-| CLEANUP-02 | — | Pending |
-| CLEANUP-03 | — | Pending |
-| CLEANUP-04 | — | Pending |
+| AUTH-01 | Phase 2 | Pending |
+| AUTH-02 | Phase 2 | Pending |
+| AUTH-03 | Phase 7 | Pending |
+| AUTH-04 | Phase 2 | Pending |
+| AUTH-05 | Phase 6 | Pending |
+| AUTH-06 | Phase 6 | Pending |
+| AUTH-07 | Phase 6 | Pending |
+| SCRAPE-01 | Phase 3 | Pending |
+| SCRAPE-02 | Phase 4 | Pending |
+| SCRAPE-03 | Phase 3 | Pending |
+| SCRAPE-04 | Phase 3 | Pending |
+| SCRAPE-05 | Phase 4 | Pending |
+| SCRAPE-06 | Phase 3 | Pending |
+| SCRAPE-07 | Phase 3 | Pending |
+| TRACK-01 | Phase 1 | Pending |
+| TRACK-02 | Phase 1 | Pending |
+| TRACK-03 | Phase 5 | Pending |
+| TRACK-04 | Phase 5 | Pending |
+| TRACK-05 | Phase 5 | Pending |
+| MATCH-01 | Phase 3 | Pending |
+| MATCH-02 | Phase 3 | Pending |
+| MATCH-03 | Phase 3 | Pending |
+| MATCH-04 | Phase 3 | Pending |
+| DOWNLOAD-01 | Phase 3 | Pending |
+| DOWNLOAD-02 | Phase 3 | Pending |
+| DOWNLOAD-03 | Phase 3 | Pending |
+| DOWNLOAD-04 | Phase 3 | Pending |
+| DOWNLOAD-05 | Phase 3 | Pending |
+| DEPLOY-01 | Phase 7 | Pending |
+| DEPLOY-02 | Phase 7 | Pending |
+| DEPLOY-03 | Phase 7 | Pending |
+| CLEANUP-01 | Phase 1 | Pending |
+| CLEANUP-02 | Phase 1 | Pending |
+| CLEANUP-03 | Phase 1 | Pending |
+| CLEANUP-04 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 35 total
-- Mapped to phases: 0
-- Unmapped: 35 ⚠️ (pending roadmap)
+- Mapped to phases: 35
+- Unmapped: 0 ✓
+
+**Per-phase distribution:**
+- Phase 1 (Schema reset & spotdl removal): 6 (TRACK-01, TRACK-02, CLEANUP-01, CLEANUP-02, CLEANUP-03, CLEANUP-04)
+- Phase 2 (Spotify session): 3 (AUTH-01, AUTH-02, AUTH-04)
+- Phase 3 (Playlist happy-path slice): 14 (SCRAPE-01, SCRAPE-03, SCRAPE-04, SCRAPE-06, SCRAPE-07, MATCH-01, MATCH-02, MATCH-03, MATCH-04, DOWNLOAD-01, DOWNLOAD-02, DOWNLOAD-03, DOWNLOAD-04, DOWNLOAD-05)
+- Phase 4 (Album + incremental rescrape): 2 (SCRAPE-02, SCRAPE-05)
+- Phase 5 (Per-track UI & retry): 3 (TRACK-03, TRACK-04, TRACK-05)
+- Phase 6 (Session-expiry surfaces): 3 (AUTH-05, AUTH-06, AUTH-07)
+- Phase 7 (Docker + CLI deploy): 4 (AUTH-03, DEPLOY-01, DEPLOY-02, DEPLOY-03)
 
 ---
 *Requirements defined: 2026-04-23*
-*Last updated: 2026-04-23 after initial definition*
+*Last updated: 2026-04-23 — traceability populated by gsd-roadmapper (35/35 mapped)*
