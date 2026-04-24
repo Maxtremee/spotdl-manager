@@ -322,7 +322,7 @@ export const triggerPlaylistSyncServerFn = createServerFn({ method: "POST" })
 	.inputValidator(triggerSyncInputSchema)
 	.handler(async ({ data }) => {
 		try {
-			// Get raw PlaylistRow from database for the scheduler
+			// Get raw SourceRow from database for the scheduler
 			const db = getDb();
 			const [playlistRow] = await db
 				.select()
