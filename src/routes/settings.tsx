@@ -2,20 +2,13 @@ import { createFileRoute } from "@tanstack/solid-router";
 import { css } from "styled-system/css";
 import { stack } from "styled-system/patterns";
 import { Text } from "~/components/ui/text";
-import {
-	CookiesSettingsForm,
-	WebhookSettingsForm,
-} from "~/modules/client/settings";
-import { getSpotdlSettingsServerFn } from "~/modules/server/spotdl/functions";
+import { WebhookSettingsForm } from "~/modules/client/settings";
 import { getWebhookSettingsServerFn } from "~/modules/server/webhooks/functions";
 
 export const Route = createFileRoute("/settings")({
 	loader: async () => {
-		const [webhookSettings, spotdlSettings] = await Promise.all([
-			getWebhookSettingsServerFn(),
-			getSpotdlSettingsServerFn(),
-		]);
-		return { webhookSettings, spotdlSettings };
+		const webhookSettings = await getWebhookSettingsServerFn();
+		return { webhookSettings };
 	},
 	component: Settings,
 });
@@ -41,8 +34,6 @@ function Settings() {
 			</header>
 
 			<WebhookSettingsForm initialSettings={data().webhookSettings} />
-
-			<CookiesSettingsForm initialSettings={data().spotdlSettings} />
 		</>
 	);
 }

@@ -20,15 +20,14 @@ export const CreatePlaylistFormSchema = z.object({
 					return (
 						parsed.hostname === "open.spotify.com" &&
 						(parsed.pathname.includes("/playlist/") ||
-							parsed.pathname.includes("/album/") ||
-							parsed.pathname.includes("/track/"))
+							parsed.pathname.includes("/album/"))
 					);
 				} catch {
 					return false;
 				}
 			},
 			{
-				message: "URL must be from Spotify (playlist, album, or track)",
+				message: "URL must be from Spotify (playlist or album)",
 			},
 		),
 
@@ -44,26 +43,6 @@ export const CreatePlaylistFormSchema = z.object({
 				message: "Please provide a valid path",
 			},
 		),
-
-	// Optional flags section
-	enableAdvancedFlags: z.boolean().default(false),
-
-	overwrite: z.boolean().default(false),
-
-	retries: z
-		.number()
-		.int()
-		.min(0, "Minimum retries: 0")
-		.max(10, "Maximum retries: 10")
-		.default(3),
-
-	quality: z
-		.enum(["worst", "low", "medium", "high", "very_high", "lossless"])
-		.default("high"),
-
-	format: z
-		.enum(["mp3", "flac", "ogg", "m4a", "opus", "vorbis", "wav"])
-		.default("mp3"),
 
 	// Optional schedule section
 	enableSchedule: z.boolean().default(false),
@@ -100,9 +79,7 @@ export type CreatePlaylistFormData = z.infer<typeof CreatePlaylistFormSchema>;
 /**
  * Helper to detect source type from Spotify URL
  */
-export function detectSourceType(
-	url: string,
-): "playlist" | "album" | "track" | null {
+export function detectSourceType(url: string): "playlist" | "album" | null {
 	try {
 		const parsed = new URL(url);
 		if (parsed.hostname !== "open.spotify.com") {
@@ -114,9 +91,6 @@ export function detectSourceType(
 		}
 		if (parsed.pathname.includes("/album/")) {
 			return "album";
-		}
-		if (parsed.pathname.includes("/track/")) {
-			return "track";
 		}
 
 		return null;
@@ -130,14 +104,8 @@ export function detectSourceType(
  */
 export function formDataToPlaylistPayload(formData: CreatePlaylistFormData): {
 	name: string;
-	source: { type: "playlist" | "album" | "track"; url: string };
+	source: { type: "playlist" | "album"; url: string };
 	outputDir: string;
-	flags?: {
-		overwrite: boolean;
-		retries: number;
-		quality: "worst" | "low" | "medium" | "high" | "very_high" | "lossless";
-		format: "mp3" | "flac" | "ogg" | "m4a" | "opus" | "vorbis" | "wav";
-	};
 	schedule?: {
 		enabled: boolean;
 		schedule:
@@ -157,14 +125,6 @@ export function formDataToPlaylistPayload(formData: CreatePlaylistFormData): {
 			url: formData.sourceUrl,
 		},
 		outputDir: formData.outputDir,
-		...(formData.enableAdvancedFlags && {
-			flags: {
-				overwrite: formData.overwrite,
-				retries: formData.retries,
-				quality: formData.quality,
-				format: formData.format,
-			},
-		}),
 		...(formData.enableSchedule && {
 			schedule: {
 				enabled: true,

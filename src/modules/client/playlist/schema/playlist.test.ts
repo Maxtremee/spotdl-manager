@@ -7,7 +7,6 @@ describe("PlaylistSchema", () => {
 			const result = parsePlaylist(SAMPLE_PLAYLISTS.spotifyPlaylist);
 			expect(result.name).toBe("My Favorite Songs");
 			expect(result.source.type).toBe("playlist");
-			expect(result.flags?.quality).toBe("high");
 			expect(result.schedule?.enabled).toBe(true);
 		});
 
@@ -15,15 +14,6 @@ describe("PlaylistSchema", () => {
 			const result = parsePlaylist(SAMPLE_PLAYLISTS.spotifyAlbum);
 			expect(result.name).toBe("Thriller Album");
 			expect(result.source.type).toBe("album");
-			expect(result.flags?.quality).toBe("very_high");
-			expect(result.flags?.format).toBe("flac");
-		});
-
-		it("should parse valid spotify track", () => {
-			const result = parsePlaylist(SAMPLE_PLAYLISTS.spotifyTrack);
-			expect(result.name).toBe("Single Track");
-			expect(result.source.type).toBe("track");
-			expect(result.status).toBe("paused");
 		});
 
 		it("should throw on missing name", () => {
@@ -35,11 +25,11 @@ describe("PlaylistSchema", () => {
 			).toThrow();
 		});
 
-		it("should throw on invalid source type", () => {
+		it("should throw when source type is 'track' (no longer supported)", () => {
 			expect(() =>
 				parsePlaylist({
 					name: "Test",
-					source: { type: "podcast", url: "https://example.com" },
+					source: { type: "track", url: "https://open.spotify.com/track/abc" },
 					outputDir: "/downloads",
 				}),
 			).toThrow();
@@ -51,17 +41,6 @@ describe("PlaylistSchema", () => {
 					name: "Test",
 					source: { type: "playlist", url: "not-a-url" },
 					outputDir: "/downloads",
-				}),
-			).toThrow();
-		});
-
-		it("should throw on invalid retries", () => {
-			expect(() =>
-				parsePlaylist({
-					name: "Test",
-					source: { type: "playlist", url: "https://example.com" },
-					outputDir: "/downloads",
-					flags: { retries: 100 }, // Max is 10
 				}),
 			).toThrow();
 		});
@@ -86,7 +65,6 @@ describe("PlaylistSchema", () => {
 				source: { type: "playlist", url: "https://example.com" },
 				outputDir: "/downloads",
 			});
-			// flags and schedule are now optional, so we check they exist
 			expect(result.status).toBe("active");
 		});
 	});
@@ -142,56 +120,6 @@ describe("PlaylistSchema", () => {
 			if (result.schedule?.schedule.type === "interval") {
 				expect(result.schedule.schedule.minutes).toBe(43200);
 			}
-		});
-
-		it("should support all audio formats", () => {
-			const formats = ["mp3", "flac", "ogg", "m4a", "opus", "vorbis", "wav"];
-			formats.forEach((format) => {
-				const result = parsePlaylist({
-					name: "Test",
-					source: { type: "playlist", url: "https://example.com" },
-					outputDir: "/downloads",
-					flags: {
-						format: format as
-							| "mp3"
-							| "flac"
-							| "ogg"
-							| "m4a"
-							| "opus"
-							| "vorbis"
-							| "wav",
-					},
-				});
-				expect(result.flags?.format).toBe(format);
-			});
-		});
-
-		it("should support all quality levels", () => {
-			const qualities = [
-				"worst",
-				"low",
-				"medium",
-				"high",
-				"very_high",
-				"lossless",
-			];
-			qualities.forEach((quality) => {
-				const result = parsePlaylist({
-					name: "Test",
-					source: { type: "playlist", url: "https://example.com" },
-					outputDir: "/downloads",
-					flags: {
-						quality: quality as
-							| "worst"
-							| "low"
-							| "medium"
-							| "high"
-							| "very_high"
-							| "lossless",
-					},
-				});
-				expect(result.flags?.quality).toBe(quality);
-			});
 		});
 
 		it("should support all playlist statuses", () => {

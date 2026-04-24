@@ -6,7 +6,6 @@ import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
 import { Text } from "~/components/ui/text";
 import { toaster } from "~/components/ui/toast";
-import { AdvancedFlagsSection } from "~/modules/client/playlist/components/advanced-flags-section";
 import { BasicFieldsSection } from "~/modules/client/playlist/components/basic-fields-section";
 import { ScheduleSection } from "~/modules/client/playlist/components/schedule-section";
 import {
@@ -32,11 +31,6 @@ function AddPlaylist() {
 			name: "",
 			sourceUrl: "",
 			outputDir: "/downloads/spotify",
-			enableAdvancedFlags: false,
-			overwrite: false,
-			retries: 3,
-			quality: "high" as const,
-			format: "mp3" as const,
 			enableSchedule: false,
 			scheduleType: "interval" as const,
 			scheduleCron: "",
@@ -107,7 +101,6 @@ function AddPlaylist() {
 						class={vstack({ gap: "6", alignItems: "stretch" })}
 					>
 						<BasicFieldsSection form={form} />
-						<AdvancedFlagsSection form={form} />
 						<ScheduleSection form={form} />
 
 						<form.Subscribe

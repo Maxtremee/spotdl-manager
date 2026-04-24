@@ -4,7 +4,7 @@ import {
 	triggerPlaylistSyncServerFn,
 	updatePlaylistServerFn,
 } from "~/modules/server/playlist/functions";
-import type { FormatOption, QualityOption, StatusOption } from "./options";
+import type { StatusOption } from "./options";
 
 export interface PlaylistActionCallbacks {
 	onSuccess?: () => void;
@@ -96,89 +96,6 @@ export async function updateStatus(
 	} catch (error) {
 		const errorMsg =
 			error instanceof Error ? error.message : "Failed to update status";
-		toaster.error({ title: "Error", description: errorMsg });
-		callbacks?.onError?.(errorMsg);
-		return false;
-	}
-}
-
-export async function updateFormat(
-	playlistId: string,
-	newFormat: FormatOption,
-	callbacks?: PlaylistActionCallbacks,
-): Promise<boolean> {
-	try {
-		const result = await updatePlaylistServerFn({
-			data: {
-				id: playlistId,
-				flags: {
-					format: newFormat as
-						| "mp3"
-						| "flac"
-						| "ogg"
-						| "m4a"
-						| "opus"
-						| "vorbis"
-						| "wav",
-				},
-			},
-		});
-		if (result.success) {
-			toaster.success({
-				title: "Format updated",
-				description: `Download format changed to ${newFormat.toUpperCase()}`,
-			});
-			callbacks?.onSuccess?.();
-			return true;
-		}
-		const errorMsg = result.error || "Failed to update format";
-		toaster.error({ title: "Update failed", description: errorMsg });
-		callbacks?.onError?.(errorMsg);
-		return false;
-	} catch (error) {
-		const errorMsg =
-			error instanceof Error ? error.message : "Failed to update format";
-		toaster.error({ title: "Error", description: errorMsg });
-		callbacks?.onError?.(errorMsg);
-		return false;
-	}
-}
-
-export async function updateQuality(
-	playlistId: string,
-	newQuality: QualityOption,
-	callbacks?: PlaylistActionCallbacks,
-): Promise<boolean> {
-	try {
-		const result = await updatePlaylistServerFn({
-			data: {
-				id: playlistId,
-				flags: {
-					quality: newQuality as
-						| "worst"
-						| "low"
-						| "medium"
-						| "high"
-						| "very_high"
-						| "lossless",
-				},
-			},
-		});
-		if (result.success) {
-			toaster.success({
-				title: "Quality updated",
-				description: `Download quality changed to ${newQuality}`,
-			});
-			callbacks?.onSuccess?.();
-			return true;
-		}
-		const errorMsg = result.error || "Failed to update quality";
-		toaster.error({ title: "Update failed", description: errorMsg });
-		callbacks?.onError?.(errorMsg);
-		return false;
-	} catch (error) {
-		const errorMsg =
-			error instanceof Error ? error.message : "Failed to update quality";
 		toaster.error({ title: "Error", description: errorMsg });
 		callbacks?.onError?.(errorMsg);
 		return false;

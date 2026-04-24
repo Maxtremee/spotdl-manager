@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Source type discriminated union for playlist source
- * Supports Spotify playlists, albums, or individual tracks
+ * Supports Spotify playlists and albums (v1 scope)
  */
 const PlaylistSourceSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -13,33 +13,7 @@ const PlaylistSourceSchema = z.discriminatedUnion("type", [
 		type: z.literal("album"),
 		url: z.string().url().describe("Spotify album URL"),
 	}),
-	z.object({
-		type: z.literal("track"),
-		url: z.string().url().describe("Spotify track URL"),
-	}),
 ]);
-
-/**
- * Flags for spotdl invocation with safe defaults
- */
-const PlaylistFlagsSchema = z.object({
-	overwrite: z.boolean().default(false).describe("Overwrite existing files"),
-	retries: z
-		.number()
-		.int()
-		.min(0)
-		.max(10)
-		.default(3)
-		.describe("Number of retries on failure"),
-	quality: z
-		.enum(["worst", "low", "medium", "high", "very_high", "lossless"])
-		.default("high")
-		.describe("Audio quality"),
-	format: z
-		.enum(["mp3", "flac", "ogg", "m4a", "opus", "vorbis", "wav"])
-		.default("mp3")
-		.describe("Audio format"),
-});
 
 /**
  * Schedule configuration: cron expression or interval in minutes
@@ -89,7 +63,6 @@ export const PlaylistSchema = z.object({
 		.string()
 		.min(1)
 		.describe("Output directory path for downloaded files"),
-	flags: PlaylistFlagsSchema.optional().describe("spotdl invocation flags"),
 	schedule: PlaylistScheduleSchema.optional().describe(
 		"Schedule configuration",
 	),
@@ -131,12 +104,6 @@ export const SAMPLE_PLAYLISTS = {
 			url: "https://open.spotify.com/playlist/1lJDx1lqWkjnh8D7VITEhC",
 		},
 		outputDir: "/downloads/spotify",
-		flags: {
-			overwrite: false,
-			retries: 3,
-			quality: "high",
-			format: "mp3",
-		},
 		schedule: {
 			enabled: true,
 			schedule: {
@@ -153,12 +120,6 @@ export const SAMPLE_PLAYLISTS = {
 			url: "https://open.spotify.com/album/0m7RPdwNo1gte0nUSwh2yv?si=FikYvA9tR_uwPUB-qUc8vw",
 		},
 		outputDir: "/downloads/albums",
-		flags: {
-			overwrite: false,
-			retries: 5,
-			quality: "very_high",
-			format: "flac",
-		},
 		schedule: {
 			enabled: false,
 			schedule: {
@@ -167,27 +128,5 @@ export const SAMPLE_PLAYLISTS = {
 			},
 		},
 		status: "active" as const,
-	},
-	spotifyTrack: {
-		name: "Single Track",
-		source: {
-			type: "track" as const,
-			url: "https://open.spotify.com/track/3xhHrJujvMsuArqRj9QLWy?si=3911e5125095495f",
-		},
-		outputDir: "/downloads/tracks",
-		flags: {
-			overwrite: true,
-			retries: 1,
-			quality: "medium",
-			format: "mp3",
-		},
-		schedule: {
-			enabled: false,
-			schedule: {
-				type: "interval" as const,
-				minutes: 60,
-			},
-		},
-		status: "paused" as const,
 	},
 } as const;
