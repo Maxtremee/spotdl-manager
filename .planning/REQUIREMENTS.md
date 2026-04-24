@@ -7,25 +7,16 @@
 
 Requirements for the pivot milestone. Each maps to a roadmap phase.
 
-### Auth (Spotify session)
+### Scrape (Spotify metadata via spotifyscraper)
 
-- [ ] **AUTH-01**: User can run a local CLI command that launches a headed Playwright browser and waits for the user to complete Spotify login
-- [ ] **AUTH-02**: On successful login, the CLI persists Playwright storage state (cookies + localStorage) to a stable path under `/data` (e.g. `data/spotify/storage-state.json`)
-- [ ] **AUTH-03**: The login CLI runs inside the Docker container via `docker exec` and writes storage state to the mounted `/data` volume
-- [ ] **AUTH-04**: Scrapers automatically load the saved storage state on each run; no per-sync re-login
-- [ ] **AUTH-05**: Scraper detects expired/invalid sessions (login redirect, auth-wall selectors) and fails the invocation with a `session_expired` reason
-- [ ] **AUTH-06**: UI displays a persistent banner when the most recent invocation failed with `session_expired`, instructing the user to re-run the login CLI
-- [ ] **AUTH-07**: Discord webhook handler sends a dedicated message when a `playlist.sync.failed` event carries a `session_expired` reason
-
-### Scrape (Playwright metadata acquisition)
+Pivoted 2026-04-24 per spikes 001/002: the `spotifyscraper` Python library fetches public Spotify metadata without auth or Chromium. Auth requirements (AUTH-01..07) and virtualized-rows requirement (SCRAPE-06) are obsolete — see Out of Scope.
 
 - [ ] **SCRAPE-01**: User can configure a Spotify playlist URL (`open.spotify.com/playlist/...`) as a source
 - [ ] **SCRAPE-02**: User can configure a Spotify album URL (`open.spotify.com/album/...`) as a source
-- [ ] **SCRAPE-03**: Scraper extracts track title, primary artist name, and track duration (ms) for every visible track in the source
+- [ ] **SCRAPE-03**: Scraper extracts track title, primary artist name, and track duration (ms) for every track returned by `spotifyscraper` for the source
 - [ ] **SCRAPE-04**: First-ever scrape of a source reads all tracks top-to-bottom and records them in order
 - [ ] **SCRAPE-05**: Incremental scrapes on subsequent syncs stop after encountering 5 consecutive tracks already stored for this source in the same order; tracks above that sentinel are inserted as additions
-- [ ] **SCRAPE-06**: Scraper handles virtualized/lazy-loaded playlist rows (auto-scroll or equivalent) so all tracks are visible to the extraction step
-- [ ] **SCRAPE-07**: Scraper captures the source's album cover-art URL (for playlists that have one, and for every album) so it can be embedded later
+- [ ] **SCRAPE-07**: Scraper captures the source's cover-art URL (for playlists that have one, and for every album) so it can be embedded later
 
 ### Tracks (per-track state model)
 
@@ -50,11 +41,11 @@ Requirements for the pivot milestone. Each maps to a roadmap phase.
 - [ ] **DOWNLOAD-04**: Default sync runs 3 yt-dlp downloads in parallel; global setting lets the user change it to 2 or 4
 - [ ] **DOWNLOAD-05**: Download failures capture yt-dlp's exit code and the last N lines of stderr into `failure_reason` on the track row
 
-### Deploy (Docker + CLI)
+### Deploy (Docker)
 
-- [ ] **DEPLOY-01**: Dockerfile is based on a slim Node image and installs only Chromium (not all Playwright browsers), yt-dlp, and ffmpeg at build time
-- [ ] **DEPLOY-02**: All mutable state (SQLite DB, logs, sync state, Playwright storage state, music files) lives under a single `/data` volume
-- [ ] **DEPLOY-03**: Login CLI is invocable via `docker exec` and writes its output to the `/data` volume so the running app picks it up on the next sync without a restart
+- [ ] **DEPLOY-01**: Dockerfile is based on a slim Node image and installs Python + `spotifyscraper` (pinned version), yt-dlp, and ffmpeg at build time — no Chromium, no Playwright browsers
+- [ ] **DEPLOY-02**: All mutable state (SQLite DB, logs, sync state, music files) lives under a single `/data` volume
+- [ ] **DEPLOY-03**: Container starts cleanly against an empty `/data` volume and the first scheduled sync works with no manual setup step (no login CLI, no external session required)
 
 ### Cleanup (rip out spotdl)
 
@@ -105,6 +96,10 @@ Explicitly excluded. Documented to prevent scope creep.
 | Library-style `<artist>/<album>/` hierarchy | Per-playlist folders are simpler and match today's shape |
 | Rich v1 metadata (lyrics, ISRC, BPM) | Deferred to v2 to keep the pivot tight |
 | Headful-browser-per-sync login | Incompatible with unattended scheduler runs |
+| Playwright login CLI + storage-state session (was AUTH-01..04) | Superseded 2026-04-24 by spotifyscraper pivot — no auth needed for public playlists/albums |
+| Session-expiry detection / UI banner / Discord webhook (was AUTH-05..07) | No session to expire under spotifyscraper; surfaces are moot |
+| Virtualized/lazy-load auto-scroll handling (was SCRAPE-06) | Library returns the full track list in one JSON response — no DOM scroll loop exists to handle |
+| Playlists >100 tracks | spotifyscraper uses Spotify's `/embed/playlist/` endpoint which Spotify hard-caps at 100 tracks (spike 002). Milestone scope = playlists ≤100 tracks + albums (no cap). Revisit only if requirements change. |
 
 ## Traceability
 
@@ -112,20 +107,12 @@ Which phases cover which requirements. Populated by `gsd-roadmapper`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
-| AUTH-03 | Phase 7 | Pending |
-| AUTH-04 | Phase 2 | Pending |
-| AUTH-05 | Phase 6 | Pending |
-| AUTH-06 | Phase 6 | Pending |
-| AUTH-07 | Phase 6 | Pending |
-| SCRAPE-01 | Phase 3 | Pending |
+| SCRAPE-01 | Phase 2 | Pending |
 | SCRAPE-02 | Phase 4 | Pending |
-| SCRAPE-03 | Phase 3 | Pending |
-| SCRAPE-04 | Phase 3 | Pending |
+| SCRAPE-03 | Phase 2 | Pending |
+| SCRAPE-04 | Phase 2 | Pending |
 | SCRAPE-05 | Phase 4 | Pending |
-| SCRAPE-06 | Phase 3 | Pending |
-| SCRAPE-07 | Phase 3 | Pending |
+| SCRAPE-07 | Phase 2 | Pending |
 | TRACK-01 | Phase 1 | Pending |
 | TRACK-02 | Phase 1 | Pending |
 | TRACK-03 | Phase 5 | Pending |
@@ -140,28 +127,29 @@ Which phases cover which requirements. Populated by `gsd-roadmapper`.
 | DOWNLOAD-03 | Phase 3 | Pending |
 | DOWNLOAD-04 | Phase 3 | Pending |
 | DOWNLOAD-05 | Phase 3 | Pending |
-| DEPLOY-01 | Phase 7 | Pending |
-| DEPLOY-02 | Phase 7 | Pending |
-| DEPLOY-03 | Phase 7 | Pending |
+| DEPLOY-01 | Phase 6 | Pending |
+| DEPLOY-02 | Phase 6 | Pending |
+| DEPLOY-03 | Phase 6 | Pending |
 | CLEANUP-01 | Phase 1 | Pending |
 | CLEANUP-02 | Phase 1 | Pending |
 | CLEANUP-03 | Phase 1 | Pending |
 | CLEANUP-04 | Phase 1 | Pending |
 
+**Obsoleted 2026-04-24 (spotifyscraper pivot):** AUTH-01..07, SCRAPE-06 — moved to Out of Scope.
+
 **Coverage:**
-- v1 requirements: 35 total
-- Mapped to phases: 35
+- v1 requirements: 27 total (post-pivot)
+- Mapped to phases: 27
 - Unmapped: 0 ✓
 
 **Per-phase distribution:**
 - Phase 1 (Schema reset & spotdl removal): 6 (TRACK-01, TRACK-02, CLEANUP-01, CLEANUP-02, CLEANUP-03, CLEANUP-04)
-- Phase 2 (Spotify session): 3 (AUTH-01, AUTH-02, AUTH-04)
-- Phase 3 (Playlist happy-path slice): 14 (SCRAPE-01, SCRAPE-03, SCRAPE-04, SCRAPE-06, SCRAPE-07, MATCH-01, MATCH-02, MATCH-03, MATCH-04, DOWNLOAD-01, DOWNLOAD-02, DOWNLOAD-03, DOWNLOAD-04, DOWNLOAD-05)
+- Phase 2 (Spotify metadata via spotifyscraper): 4 (SCRAPE-01, SCRAPE-03, SCRAPE-04, SCRAPE-07)
+- Phase 3 (Match + download slice): 9 (MATCH-01, MATCH-02, MATCH-03, MATCH-04, DOWNLOAD-01, DOWNLOAD-02, DOWNLOAD-03, DOWNLOAD-04, DOWNLOAD-05)
 - Phase 4 (Album + incremental rescrape): 2 (SCRAPE-02, SCRAPE-05)
 - Phase 5 (Per-track UI & retry): 3 (TRACK-03, TRACK-04, TRACK-05)
-- Phase 6 (Session-expiry surfaces): 3 (AUTH-05, AUTH-06, AUTH-07)
-- Phase 7 (Docker + CLI deploy): 4 (AUTH-03, DEPLOY-01, DEPLOY-02, DEPLOY-03)
+- Phase 6 (Docker + deploy): 3 (DEPLOY-01, DEPLOY-02, DEPLOY-03)
 
 ---
 *Requirements defined: 2026-04-23*
-*Last updated: 2026-04-23 — traceability populated by gsd-roadmapper (35/35 mapped)*
+*Last updated: 2026-04-24 — pivot to spotifyscraper; AUTH-01..07 and SCRAPE-06 obsoleted; renumbered traceability (27/27 mapped)*

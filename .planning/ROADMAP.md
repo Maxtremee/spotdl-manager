@@ -1,8 +1,10 @@
-# Roadmap: spotdl-manager (Playwright + yt-dlp pivot)
+# Roadmap: spotdl-manager (spotifyscraper + yt-dlp pivot)
 
 ## Overview
 
-This milestone swaps the download engine from the broken `spotdl` CLI to a Playwright-scrape + `yt-dlp`-resolve pipeline, while preserving the existing infrastructure layer (SSR routes, scheduler, event bus, Discord webhooks, repository pattern). The pivot unfolds as a vertical slice: first clear out spotdl and stand up the new track-state schema (clean-break DB reset), then prove the Playwright login CLI, then drive **one playlist all the way to a tagged MP3 on disk** before broadening to albums, incremental rescrape, retry/expiry UI, and finally hardening the Docker image and CLI entrypoint for the deploy target.
+This milestone swaps the download engine from the broken `spotdl` CLI to a `spotifyscraper`-driven metadata path feeding `yt-dlp`-based YouTube resolution, while preserving the existing infrastructure layer (SSR routes, scheduler, event bus, Discord webhooks, repository pattern). The pivot unfolds as a vertical slice: first clear out spotdl and stand up the new track-state schema (clean-break DB reset), then integrate the `spotifyscraper` library to populate `tracks` from a configured Spotify URL, then drive those rows through YouTube match + tagged-MP3 download, before broadening to albums + incremental rescrape, per-track UI/retry, and finally hardening the Docker image and CLI entrypoint for the deploy target.
+
+**Pivot from the original Playwright-session plan (2026-04-24):** Spike 001 validated that `spotifyscraper` v2.1.5 fetches public Spotify metadata against the live web player without auth or Chromium. Spike 002 uncovered a hard-cap — the library uses Spotify's `/embed/playlist/` endpoint, which Spotify itself caps at 100 tracks per playlist. Albums are unaffected. We accept the constraint: milestone scope is albums + playlists ≤100 tracks. All session/login/expiry concerns from the old plan fall away with this library choice.
 
 ## Phases
 
@@ -13,12 +15,11 @@ This milestone swaps the download engine from the broken `spotdl` CLI to a Playw
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Schema reset & spotdl removal** (2026-04-24) - Rip out spotdl, introduce `tracks` table, clean-break DB wipe
-- [ ] **Phase 2: Spotify session (Playwright login CLI)** - Persistent storage state written to `/data` via container-runnable CLI
-- [ ] **Phase 3: Playlist happy-path slice (end-to-end MP3)** - One playlist scrapes, matches, downloads, tags a single track successfully
-- [ ] **Phase 4: Album support & incremental rescrape** - Albums scrape identically, repeat syncs stop after 5 known-in-order tracks
+- [ ] **Phase 2: Spotify metadata via spotifyscraper** - Configured playlist URL populates `tracks` via `spotifyscraper` — no auth, no Chromium
+- [ ] **Phase 3: Match + download slice (end-to-end MP3)** - Pending tracks resolve on YouTube, download via yt-dlp, and land as tagged MP3s on disk
+- [ ] **Phase 4: Album support & incremental rescrape** - Albums scrape identically (no 100-track cap); repeat syncs stop after 5 known-in-order tracks
 - [ ] **Phase 5: Per-track UI & retry model** - Track state badges, per-track manual retry, auto-retry of non-downloaded tracks
-- [ ] **Phase 6: Session-expiry surfaces** - UI banner + Discord webhook fire on `session_expired` failures
-- [ ] **Phase 7: Docker image & deployment** - Slim Node + Chromium + yt-dlp + ffmpeg image with volume-mounted `/data` CLI flow
+- [ ] **Phase 6: Docker image & deployment** - Slim Node + yt-dlp + ffmpeg image with volume-mounted `/data`
 
 ## Phase Details
 
@@ -35,39 +36,42 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 2: Spotify session (Playwright login CLI)
-**Goal**: A single operator command opens a headed Chromium, the user logs into Spotify once, and the resulting storage state persists to `/data` where the scheduler will later pick it up.
+### Phase 2: Spotify metadata via spotifyscraper
+**Goal**: A configured Spotify playlist URL, on sync, fetches metadata via the `spotifyscraper` library (no auth, no Chromium) and populates the `tracks` table with pending rows carrying title, primary-artist, duration_ms, position, and cover-art URL. This replaces the old Playwright-session approach entirely.
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-04
+**Requirements**: SCRAPE-01, SCRAPE-03, SCRAPE-04, SCRAPE-07
 **Success Criteria** (what must be TRUE):
-  1. Running the login CLI (e.g. `pnpm login:spotify`) launches a headed Playwright Chromium pointed at Spotify login
-  2. After the user completes login, storage state is saved to `data/spotify/storage-state.json` and the CLI exits 0
-  3. A server-side helper loads that storage state and can open `https://open.spotify.com` in a headless context without being redirected to the login page
-  4. Missing/unreadable storage state produces a clear, typed error that callers can catch (no silent fall-through)
+  1. User can configure a Spotify playlist URL (`open.spotify.com/playlist/...`) as a source
+  2. On sync, `spotifyscraper` is invoked and every returned track lands in the `tracks` table with `spotify_track_id` (derived from `track.uri.split(":")[-1]`), `title`, primary `artist` name, `duration_ms`, `position`, and `state = pending`
+  3. The source's cover-art URL is captured (at the source level, for later ID3 embedding)
+  4. First-ever scrape of a source reads all tracks top-to-bottom and records them in order (no early-stop on empty state)
+  5. Library limitations are handled explicitly: empty `id` → derived from `uri`; `spotifyscraper` exceptions surface as typed errors the sync pipeline can catch
+  6. **Constraint accepted**: playlists >100 tracks are truncated by the library (Spotify `/embed/playlist/` cap). Milestone scope = playlists ≤100 tracks + albums. Revisit only if requirements change.
 **Plans**: TBD
 
-### Phase 3: Playlist happy-path slice (end-to-end MP3)
-**Goal**: Given a configured playlist URL and a valid session, one scheduled sync run scrapes every track, matches them on YouTube under the strict duration gate, and writes tagged MP3s to `data/music/<slug>/`. This is the first moment the app does its job end-to-end.
+### Phase 3: Match + download slice (end-to-end MP3)
+**Goal**: Pending rows produced by Phase 2 are resolved on YouTube under the strict duration gate, downloaded via yt-dlp, tagged, and land on disk at `data/music/<slug>/`. This is the first moment the app does its job end-to-end.
 **Depends on**: Phase 2
-**Requirements**: SCRAPE-01, SCRAPE-03, SCRAPE-04, SCRAPE-06, SCRAPE-07, MATCH-01, MATCH-02, MATCH-03, MATCH-04, DOWNLOAD-01, DOWNLOAD-02, DOWNLOAD-03, DOWNLOAD-04, DOWNLOAD-05
+**Requirements**: MATCH-01, MATCH-02, MATCH-03, MATCH-04, DOWNLOAD-01, DOWNLOAD-02, DOWNLOAD-03, DOWNLOAD-04, DOWNLOAD-05
 **Success Criteria** (what must be TRUE):
-  1. User can add a Spotify playlist URL as a source and trigger a sync; track rows (title, artist, duration_ms, position, cover-art URL) land in the `tracks` table for every row in the playlist, including virtualized/lazy-loaded ones
-  2. Each pending track is resolved via `yt-dlp ytsearch1:"<artist> <title>"`; accepted matches (within ±3s) persist `yt_video_id` and transition to `downloaded`; out-of-tolerance tracks transition to `skipped_low_confidence` with the duration delta stored in `failure_reason`
-  3. Accepted tracks land on disk at `data/music/<slug>/<artist> - <title>.mp3` with embedded ID3 tags (title, artist, album, cover art) and sanitized filenames
-  4. The sync runs 3 yt-dlp downloads in parallel by default; a global setting lets the user set this to 2 or 4 and also adjust the duration tolerance
-  5. yt-dlp failures are recorded on the track row with exit code and the tail of stderr in `failure_reason`; the invocation row still completes with per-track counts in its summary
+  1. Each `pending` track is resolved via `yt-dlp ytsearch1:"<artist> <title>"`; accepted matches (within ±3s) persist `yt_video_id` and transition to `downloaded`; out-of-tolerance tracks transition to `skipped_low_confidence` with the duration delta stored in `failure_reason`
+  2. Accepted tracks land on disk at `data/music/<slug>/<artist> - <title>.mp3` with embedded ID3 tags (title, artist, album, cover art) and sanitized filenames
+  3. The sync runs 3 yt-dlp downloads in parallel by default; a global setting lets the user set this to 2 or 4 and also adjust the duration tolerance
+  4. yt-dlp failures are recorded on the track row with exit code and the tail of stderr in `failure_reason`; the invocation row still completes with per-track counts in its summary
+  5. A complete sync on a single configured playlist ends with at least one real tagged MP3 on disk for a known-good track
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 4: Album support & incremental rescrape
-**Goal**: Albums work the same as playlists, and repeat syncs on any source stop early once they see known content — cutting cost on large libraries and keeping scheduled runs cheap.
+**Goal**: Albums work the same as playlists (no 100-track cap applies at the album endpoint), and repeat syncs on any source stop early once they see known content — cutting cost on large libraries and keeping scheduled runs cheap.
 **Depends on**: Phase 3
 **Requirements**: SCRAPE-02, SCRAPE-05
 **Success Criteria** (what must be TRUE):
   1. User can add a Spotify album URL (`open.spotify.com/album/...`) as a source; scraping, matching, downloading, and tagging all behave identically to playlists
-  2. The second and subsequent syncs on a source read newest-to-oldest and stop after 5 consecutive tracks already present in the `tracks` table in the same order
-  3. Tracks appearing above the sentinel on a rescrape are inserted with correct `position` and flow into the normal matching pipeline
-  4. A first-ever sync on a new source still reads the entire list top-to-bottom (no early-stop on empty state)
+  2. Album-track rows fall back to `album.artists[0].name` for the artist field when the per-track `artists` field is empty (spotifyscraper quirk documented in spike 001)
+  3. The second and subsequent syncs on a source read newest-to-oldest and stop after 5 consecutive tracks already present in the `tracks` table in the same order
+  4. Tracks appearing above the sentinel on a rescrape are inserted with correct `position` and flow into the normal matching pipeline
+  5. A first-ever sync on a new source still reads the entire list top-to-bottom (no early-stop on empty state)
 **Plans**: TBD
 
 ### Phase 5: Per-track UI & retry model
@@ -82,43 +86,31 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 6: Session-expiry surfaces
-**Goal**: When the Spotify session expires, the user finds out fast — via a persistent banner in the app and a Discord ping — and knows exactly what to do next.
+### Phase 6: Docker image & deployment
+**Goal**: The app ships as a single container image that bundles exactly the runtime deps we need (Python + spotifyscraper, yt-dlp, ffmpeg) and supports first-run from a single `/data` volume. No Chromium — the spotifyscraper pivot removed the Playwright dependency entirely.
 **Depends on**: Phase 5
-**Requirements**: AUTH-05, AUTH-06, AUTH-07
+**Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03
 **Success Criteria** (what must be TRUE):
-  1. When a scrape hits the login redirect or auth-wall selectors, the invocation is marked failed with reason `session_expired` and a `playlist.sync.failed` event is emitted carrying that reason
-  2. Whenever the most recent invocation failed with `session_expired`, a persistent banner appears across the app telling the user to re-run the login CLI
-  3. The Discord webhook handler sends a dedicated, distinguishable message for `session_expired` failures (separate from generic sync failures)
-  4. After the user re-runs the login CLI, the next sync succeeds and the banner disappears automatically
-**Plans**: TBD
-**UI hint**: yes
-
-### Phase 7: Docker image & deployment
-**Goal**: The app ships as a single container image that bundles exactly the runtime deps we need (Chromium, yt-dlp, ffmpeg) and supports the login CLI via `docker exec` against a single `/data` volume.
-**Depends on**: Phase 6
-**Requirements**: AUTH-03, DEPLOY-01, DEPLOY-02, DEPLOY-03
-**Success Criteria** (what must be TRUE):
-  1. The production `Dockerfile` is based on a slim Node image and installs only Chromium (not all Playwright browsers), yt-dlp, and ffmpeg
-  2. All runtime state (SQLite DB, logs, sync state, Playwright storage state, music files) lives under a single mounted `/data` volume; nothing persists elsewhere
-  3. `docker exec <container> pnpm login:spotify` runs the login CLI inside the running container and writes storage state to the mounted volume
-  4. After the login CLI exits, the next scheduled sync picks up the new session without a container restart
+  1. The production `Dockerfile` is based on a slim Node image and installs only Python + `spotifyscraper` (pinned version), yt-dlp, and ffmpeg — no Chromium, no Playwright browsers
+  2. All runtime state (SQLite DB, logs, sync state, music files) lives under a single mounted `/data` volume; nothing persists elsewhere
+  3. The container starts cleanly against an empty `/data` volume and the first sync works without any manual setup step (no login CLI needed)
+  4. Image size stays meaningfully smaller than the Playwright-bearing reference, since Chromium is removed
 **Plans**: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema reset & spotdl removal | 5/5 | Complete | 2026-04-24 |
-| 2. Spotify session (Playwright login CLI) | 0/TBD | Not started | - |
-| 3. Playlist happy-path slice (end-to-end MP3) | 0/TBD | Not started | - |
+| 2. Spotify metadata via spotifyscraper | 0/TBD | Not started | - |
+| 3. Match + download slice (end-to-end MP3) | 0/TBD | Not started | - |
 | 4. Album support & incremental rescrape | 0/TBD | Not started | - |
 | 5. Per-track UI & retry model | 0/TBD | Not started | - |
-| 6. Session-expiry surfaces | 0/TBD | Not started | - |
-| 7. Docker image & deployment | 0/TBD | Not started | - |
+| 6. Docker image & deployment | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-04-23*
+*Restructured 2026-04-24: pivot from Playwright session to spotifyscraper (per spikes 001/002). Removed old Phase 2 (Spotify session) and old Phase 6 (session-expiry surfaces). Renumbered old Phase 7 → new Phase 6.*
