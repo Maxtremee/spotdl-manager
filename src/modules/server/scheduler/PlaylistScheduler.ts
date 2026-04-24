@@ -6,43 +6,35 @@ import { Logger } from "../../../logger";
 import { getDb, schema } from "../db";
 import type { SourceRow } from "../db/schema";
 import { getEventBus } from "../events";
-import { InvocationRepository } from "../invocation/repository";
-import { SpotdlRepository } from "../spotdl/repository";
-import { SpotdlInvocator } from "../spotdl/SpotdlInvocator";
 
 /**
- * Manages scheduled playlist sync jobs using croner.
- * Handles both cron-based and interval-based scheduling.
+ * Manages scheduled sync jobs using croner.
+ *
+ * Phase 1 (this file): the tick body is an **event-emitting no-op**. Each
+ * tick fires `playlist.sync.started` immediately followed by
+ * `playlist.sync.completed` via the existing event bus — no scrape, no
+ * download, no invocation row. This keeps the webhook / metrics / duration
+ * warning / logging handlers warm through the interim before the Phase 3
+ * engine lands.
+ *
+ * Locked decisions (see `.planning/phases/01-schema-reset-spotdl-removal/01-CONTEXT.md`):
+ * - D-01 scheduler stays wired, ticks on its cron/interval schedule.
+ * - D-02 stub ticks emit `playlist.sync.started` + `playlist.sync.completed`.
+ * - D-03 stub ticks do NOT create `invocations` rows. Events only.
  */
 export class PlaylistScheduler {
 	private readonly tasks: Map<string, Cron> = new Map();
-	private invocator: SpotdlInvocator;
 	private readonly runningPlaylists: Set<string> = new Set();
 	private readonly logger: AppLogger;
-	private readonly invocationRepository: InvocationRepository;
-	private readonly spotdlRepository: SpotdlRepository;
 
 	constructor(logger?: AppLogger) {
-		this.invocationRepository = new InvocationRepository();
-		this.spotdlRepository = new SpotdlRepository();
-		this.invocator = new SpotdlInvocator();
-		this.logger = logger ?? Logger.get("PlaylistScheduler");
+		this.logger = logger ?? Logger.get("SchedulerStub");
 	}
 
 	/**
-	 * Load spotdl settings and reinitialize invocator with cookies if configured
+	 * Fetch all sources with scheduling enabled and active status.
 	 */
-	private async loadSpotdlSettings(): Promise<void> {
-		const settings = await this.spotdlRepository.getSettings();
-		this.invocator = new SpotdlInvocator({
-			useCookies: settings.useCookies,
-		});
-	}
-
-	/**
-	 * Fetch all playlists with scheduling enabled and active status
-	 */
-	private async getScheduledPlaylists(): Promise<SourceRow[]> {
+	private async getScheduledSources(): Promise<SourceRow[]> {
 		const db = getDb();
 		return db
 			.select()
@@ -79,181 +71,90 @@ export class PlaylistScheduler {
 	}
 
 	/**
-	 * Execute a playlist sync and record the invocation
+	 * Phase 1 stub: emit `playlist.sync.started` then `playlist.sync.completed`
+	 * with no work in between. No DB writes (D-03). A concurrency guard
+	 * prevents a same-source tick from overlapping itself — the running-set
+	 * entry is added *before* the first `await` so simultaneous invocations
+	 * see the guard.
+	 *
+	 * Duration is `Math.max(1, elapsedMs)` because the `duration` field in
+	 * `PlaylistSyncCompletedEventSchema` is `z.number().positive()` and a
+	 * 0-ms synchronous tick would be rejected by Zod, silently dropping
+	 * downstream handlers. (Pitfall 2 guard.)
 	 */
-	private async executePlaylistSync(playlist: SourceRow): Promise<void> {
-		// Prevent concurrent runs of the same playlist
-		if (this.runningPlaylists.has(playlist.id)) {
+	private async executePlaylistSync(source: SourceRow): Promise<void> {
+		if (this.runningPlaylists.has(source.id)) {
 			this.logger.warn(
-				{ playlistId: playlist.id, playlistName: playlist.name },
-				"Playlist is already running, skipping",
+				{ sourceId: source.id, sourceName: source.name },
+				"Stub: source already ticking, skipping",
 			);
 			return;
 		}
 
-		this.runningPlaylists.add(playlist.id);
+		this.runningPlaylists.add(source.id);
 		const invocationId = randomUUID();
-		const startedAt = new Date();
-		let createPromise: Promise<unknown> | null = null;
-
-		this.logger.info(
-			{ playlistId: playlist.id, playlistName: playlist.name },
-			"Starting scheduled sync",
-		);
-
+		const startedAt = Date.now();
 		const eventBus = getEventBus();
 
-		// Emit sync started event
-		await eventBus.emit({
-			type: "playlist.sync.started",
-			payload: {
-				playlistId: playlist.id,
-				playlistName: playlist.name,
-				invocationId,
-				sourceUrl: playlist.sourceUrl,
-				outputDir: playlist.outputDir,
-			},
-		});
-
 		try {
-			// Compute log path upfront so we can read logs while invocation is running
-			const logPath = this.invocator.getLogPath(playlist.id, startedAt);
-
-			createPromise = this.invocationRepository.create({
-				id: invocationId,
-				playlistId: playlist.id,
-				startedAt,
-				status: "running",
-				logPath,
-			});
-
-			// NOTE: flag columns were removed from schema in Phase 1 — hardcoded
-			// defaults below keep this call site compiling; Plan 01-04 rewrites
-			// executePlaylistSync into an event-emitting no-op.
-			const result = await this.invocator.run({
-				playlistId: playlist.id,
-				sourceUrl: playlist.sourceUrl,
-				outputDir: playlist.outputDir,
-				flags: {
-					format: "mp3",
-					overwrite: false,
+			await eventBus.emit({
+				type: "playlist.sync.started",
+				payload: {
+					playlistId: source.id,
+					playlistName: source.name,
+					invocationId,
+					sourceUrl: source.sourceUrl,
+					outputDir: source.outputDir,
 				},
 			});
-
-			await createPromise;
-
-			await this.invocationRepository.update(invocationId, {
-				finishedAt: new Date(result.finishedAt),
-				exitCode: result.exitCode,
-				status: result.status,
-				logPath: result.logPath,
-				syncFilePath: result.syncFilePath,
-				summary: result.summary,
-			});
-
-			const finishedAtMs = new Date(result.finishedAt).getTime();
-			const duration = finishedAtMs - startedAt.getTime();
 
 			this.logger.info(
-				{
-					playlistId: playlist.id,
-					playlistName: playlist.name,
-					status: result.status,
-				},
-				"Completed sync",
+				{ sourceId: source.id, sourceName: source.name },
+				"Scheduler stub tick — no engine attached (Phase 1)",
 			);
 
-			if (result.status === "success") {
-				// Emit appropriate completion event based on status
-				await eventBus.emit({
-					type: "playlist.sync.completed",
-					payload: {
-						playlistId: playlist.id,
-						playlistName: playlist.name,
-						invocationId,
-						duration,
-						exitCode: result.exitCode ?? 0,
-						summary: result.summary,
-						logPath: result.logPath,
-						syncFilePath: result.syncFilePath,
-					},
-				});
-			} else if (result.status === "failed") {
-				await eventBus.emit({
-					type: "playlist.sync.failed",
-					payload: {
-						playlistId: playlist.id,
-						playlistName: playlist.name,
-						invocationId,
-						error: result.summary || "Unknown error",
-						exitCode: result.exitCode ?? undefined,
-						logPath: result.logPath,
-					},
-				});
-			} else if (result.status === "canceled") {
-				await eventBus.emit({
-					type: "playlist.sync.canceled",
-					payload: {
-						playlistId: playlist.id,
-						playlistName: playlist.name,
-						invocationId,
-						reason: result.summary,
-					},
-				});
-			}
-		} catch (error) {
-			this.logger.error(
-				{ err: error, playlistId: playlist.id, playlistName: playlist.name },
-				"Error syncing playlist",
-			);
+			// Pitfall 2: Zod `z.number().positive()` rejects 0, so floor to 1ms.
+			const duration = Math.max(1, Date.now() - startedAt);
 
-			if (createPromise) {
-				await createPromise.catch(() => {});
-			}
-
-			// Update invocation as failed
-			await this.invocationRepository.update(invocationId, {
-				finishedAt: new Date(),
-				exitCode: -1,
-				status: "failed",
-				summary: error instanceof Error ? error.message : "Unknown error",
-			});
-
-			// Emit failure event
 			await eventBus.emit({
-				type: "playlist.sync.failed",
+				type: "playlist.sync.completed",
 				payload: {
-					playlistId: playlist.id,
-					playlistName: playlist.name,
+					playlistId: source.id,
+					playlistName: source.name,
 					invocationId,
-					error: error instanceof Error ? error.message : "Unknown error",
-					exitCode: -1,
+					duration,
+					exitCode: 0,
+					summary: "Phase 1 stub — no engine attached",
 				},
 			});
 		} finally {
-			this.runningPlaylists.delete(playlist.id);
+			this.runningPlaylists.delete(source.id);
 		}
 	}
 
 	/**
-	 * Schedule a single playlist
+	 * Schedule a single source.
+	 *
+	 * NOTE: Public method name kept as `schedulePlaylist` because external
+	 * callers (e.g. plugins) reference it; only the param type and internal
+	 * variable names are renamed to `source`.
 	 */
-	schedulePlaylist(playlist: SourceRow): void {
+	schedulePlaylist(source: SourceRow): void {
 		// Remove existing task if any
-		this.unschedulePlaylist(playlist.id);
+		this.unschedulePlaylist(source.id);
 
 		// Determine cron expression
 		let cronExpression: string;
-		if (playlist.scheduleType === "cron" && playlist.scheduleCron) {
-			cronExpression = playlist.scheduleCron;
+		if (source.scheduleType === "cron" && source.scheduleCron) {
+			cronExpression = source.scheduleCron;
 		} else if (
-			playlist.scheduleType === "interval" &&
-			playlist.scheduleMinutes
+			source.scheduleType === "interval" &&
+			source.scheduleMinutes
 		) {
-			cronExpression = this.intervalToCron(playlist.scheduleMinutes);
+			cronExpression = this.intervalToCron(source.scheduleMinutes);
 		} else {
 			this.logger.warn(
-				{ playlistId: playlist.id, playlistName: playlist.name },
+				{ sourceId: source.id, sourceName: source.name },
 				"Invalid schedule configuration",
 			);
 			return;
@@ -263,24 +164,24 @@ export class PlaylistScheduler {
 		try {
 			const task = new Cron(cronExpression, async () => {
 				// Return the promise so callers (and tests) can await completion
-				return this.executePlaylistSync(playlist);
+				return this.executePlaylistSync(source);
 			});
 
-			this.tasks.set(playlist.id, task);
+			this.tasks.set(source.id, task);
 			this.logger.info(
 				{
-					playlistId: playlist.id,
-					playlistName: playlist.name,
+					sourceId: source.id,
+					sourceName: source.name,
 					cron: cronExpression,
 				},
-				"Scheduled playlist",
+				"Scheduled source",
 			);
 		} catch (error) {
 			this.logger.error(
 				{
 					err: error,
-					playlistId: playlist.id,
-					playlistName: playlist.name,
+					sourceId: source.id,
+					sourceName: source.name,
 					cron: cronExpression,
 				},
 				"Invalid cron expression",
@@ -289,51 +190,48 @@ export class PlaylistScheduler {
 	}
 
 	/**
-	 * Remove a playlist from the schedule
+	 * Remove a source from the schedule.
+	 *
+	 * Public method name kept as `unschedulePlaylist` because external
+	 * callers still use it.
 	 */
-	unschedulePlaylist(playlistId: string): void {
-		const task = this.tasks.get(playlistId);
+	unschedulePlaylist(sourceId: string): void {
+		const task = this.tasks.get(sourceId);
 		if (task) {
 			task.stop();
-			this.tasks.delete(playlistId);
-			this.logger.info({ playlistId }, "Unscheduled playlist");
+			this.tasks.delete(sourceId);
+			this.logger.info({ sourceId }, "Unscheduled source");
 		}
 	}
 
 	/**
-	 * Initialize the scheduler by loading all scheduled playlists from the database
+	 * Initialize the scheduler by loading all scheduled sources from the database.
 	 */
 	async initialize(): Promise<void> {
-		this.logger.info("Initializing playlist scheduler...");
+		this.logger.info("Initializing scheduler stub...");
 
-		// Load spotdl settings (including cookies file)
-		await this.loadSpotdlSettings();
-
-		const playlists = await this.getScheduledPlaylists();
+		const sources = await this.getScheduledSources();
 		this.logger.info(
-			{ count: playlists.length },
-			"Found playlists with scheduling enabled",
+			{ count: sources.length },
+			"Found sources with scheduling enabled",
 		);
 
-		for (const playlist of playlists) {
-			this.schedulePlaylist(playlist);
+		for (const source of sources) {
+			this.schedulePlaylist(source);
 		}
 
-		this.logger.info("Playlist scheduler initialized");
+		this.logger.info("Scheduler stub initialized");
 	}
 
 	/**
-	 * Reload schedules from database (useful when playlists are updated)
+	 * Reload schedules from database (useful when sources are updated).
 	 */
 	async reload(): Promise<void> {
-		this.logger.info("Reloading playlist schedules...");
-
-		// Reload spotdl settings
-		await this.loadSpotdlSettings();
+		this.logger.info("Reloading scheduler stub...");
 
 		// Stop all current tasks
-		for (const [playlistId] of this.tasks) {
-			this.unschedulePlaylist(playlistId);
+		for (const [sourceId] of this.tasks) {
+			this.unschedulePlaylist(sourceId);
 		}
 
 		// Re-initialize
@@ -341,56 +239,61 @@ export class PlaylistScheduler {
 	}
 
 	/**
-	 * Stop all scheduled tasks
+	 * Stop all scheduled tasks.
 	 */
 	shutdown(): void {
-		this.logger.info("Shutting down playlist scheduler...");
-		for (const [playlistId] of this.tasks) {
-			this.unschedulePlaylist(playlistId);
+		this.logger.info("Shutting down scheduler stub...");
+		for (const [sourceId] of this.tasks) {
+			this.unschedulePlaylist(sourceId);
 		}
-		this.logger.info("Playlist scheduler stopped");
+		this.logger.info("Scheduler stub stopped");
 	}
 
 	/**
-	 * Get the number of scheduled tasks
+	 * Get the number of scheduled tasks.
 	 */
 	getScheduledCount(): number {
 		return this.tasks.size;
 	}
 
 	/**
-	 * Check if a playlist is currently scheduled
+	 * Check if a source is currently scheduled.
 	 */
-	isScheduled(playlistId: string): boolean {
-		return this.tasks.has(playlistId);
+	isScheduled(sourceId: string): boolean {
+		return this.tasks.has(sourceId);
 	}
 
 	/**
-	 * Check if a playlist is currently running
+	 * Check if a source is currently running.
 	 */
-	isRunning(playlistId: string): boolean {
-		return this.runningPlaylists.has(playlistId);
+	isRunning(sourceId: string): boolean {
+		return this.runningPlaylists.has(sourceId);
 	}
 
 	/**
-	 * Manually trigger a playlist sync
-	 * Returns the invocation ID if successful, or null if playlist is already running
+	 * Manually trigger a sync.
+	 *
+	 * Phase 1 note (Pitfall 5): the UI "Run Now" button is hidden in Plan 01-02
+	 * per D-04, but this server function is intentionally preserved so Phase 3
+	 * can re-enable the button without re-plumbing the public method surface.
+	 * The call body (`executePlaylistSync`) currently runs the event-emitting
+	 * stub.
+	 *
+	 * Returns "triggered" if started; null if the source is already running.
 	 */
-	async triggerManualSync(playlist: SourceRow): Promise<string | null> {
-		if (this.runningPlaylists.has(playlist.id)) {
+	async triggerManualSync(source: SourceRow): Promise<string | null> {
+		if (this.runningPlaylists.has(source.id)) {
 			this.logger.warn(
-				{ playlistId: playlist.id, playlistName: playlist.name },
-				"Playlist is already running, cannot trigger manual sync",
+				{ sourceId: source.id, sourceName: source.name },
+				"Source is already running, cannot trigger manual sync",
 			);
 			return null;
 		}
 
 		// Execute sync in background (don't await, let it run async)
-		this.executePlaylistSync(playlist);
+		this.executePlaylistSync(source);
 
-		// Return early - the sync is now running
-		// We can't return the invocation ID immediately since it's created inside executePlaylistSync
-		// But we can indicate success by returning a truthy value
+		// Return early — the sync is now running.
 		return "triggered";
 	}
 }
@@ -399,7 +302,7 @@ export class PlaylistScheduler {
 let schedulerInstance: PlaylistScheduler | null = null;
 
 /**
- * Get or create the singleton scheduler instance
+ * Get or create the singleton scheduler instance.
  */
 export function getScheduler(logger?: AppLogger): PlaylistScheduler {
 	if (!schedulerInstance) {
