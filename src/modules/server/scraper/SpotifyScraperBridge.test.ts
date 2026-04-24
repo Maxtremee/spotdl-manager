@@ -59,8 +59,14 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
@@ -93,8 +99,14 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
@@ -119,12 +131,23 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
-			child.stdout.emit("data", Buffer.from(JSON.stringify({ tracks: [], cover_art_url: null, error: null })));
+			child.stdout.emit(
+				"data",
+				Buffer.from(
+					JSON.stringify({ tracks: [], cover_art_url: null, error: null }),
+				),
+			);
 			child.emit("close", 0, null);
 
 			await promise;
@@ -144,13 +167,21 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
 			let resolved = false;
-			promise.then(() => { resolved = true; });
+			promise.then(() => {
+				resolved = true;
+			});
 
 			// Emit partial JSON chunks — should NOT resolve
 			const envelope = { tracks: [], cover_art_url: null, error: null };
@@ -176,12 +207,23 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
-			child.stderr.emit("data", Buffer.from("Traceback (most recent call last):\n  File ...\nException: something bad"));
+			child.stderr.emit(
+				"data",
+				Buffer.from(
+					"Traceback (most recent call last):\n  File ...\nException: something bad",
+				),
+			);
 			child.emit("close", 2, null);
 
 			const result = await promise;
@@ -199,8 +241,14 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
@@ -220,8 +268,14 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
@@ -244,16 +298,31 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 			child.emit("close", 0, null);
-			child.stdout.emit("data", Buffer.from(JSON.stringify({ tracks: [], cover_art_url: null, error: null })));
+			child.stdout.emit(
+				"data",
+				Buffer.from(
+					JSON.stringify({ tracks: [], cover_art_url: null, error: null }),
+				),
+			);
 
 			await promise.catch(() => {}); // May or may not fail — we just want the spawn call
 
-			const [bin, args, opts] = vi.mocked(spawn).mock.calls[0] as [string, string[], Record<string, unknown>];
+			const [bin, args, opts] = vi.mocked(spawn).mock.calls[0] as [
+				string,
+				string[],
+				Record<string, unknown>,
+			];
 			expect(typeof bin).toBe("string");
 			expect(Array.isArray(args)).toBe(true);
 			expect(args).toContain("scraper/scraper.py");
@@ -267,16 +336,31 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
-			child.stdout.emit("data", Buffer.from(JSON.stringify({ tracks: [], cover_art_url: null, error: null })));
+			child.stdout.emit(
+				"data",
+				Buffer.from(
+					JSON.stringify({ tracks: [], cover_art_url: null, error: null }),
+				),
+			);
 			child.emit("close", 0, null);
 
 			await promise;
 
-			const [, , opts] = vi.mocked(spawn).mock.calls[0] as [string, string[], Record<string, unknown>];
+			const [, , opts] = vi.mocked(spawn).mock.calls[0] as [
+				string,
+				string[],
+				Record<string, unknown>,
+			];
 			expect(opts?.timeout).toBe(30_000);
 		});
 	});
@@ -286,8 +370,14 @@ describe("SpotifyScraperBridge", () => {
 			const child = makeFakeChild();
 			vi.mocked(spawn).mockReturnValue(child as any);
 
-			const bridge = new SpotifyScraperBridge("python3", "scraper/scraper.py", 30_000);
-			const promise = bridge.fetchPlaylist("https://open.spotify.com/playlist/abc123");
+			const bridge = new SpotifyScraperBridge(
+				"python3",
+				"scraper/scraper.py",
+				30_000,
+			);
+			const promise = bridge.fetchPlaylist(
+				"https://open.spotify.com/playlist/abc123",
+			);
 
 			await tick();
 
