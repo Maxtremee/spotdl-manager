@@ -1166,7 +1166,7 @@ Framework install: none — Vitest already present and wired.
 
 **Nothing here introduces new secrets, new network surface, or new file-system writes beyond what Phase 1 already had.**
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `cover_art_url` updates happen inside the same transaction as the tracks upsert?**
    - What we know: D-08 says "no tracks rows on failure" — this implies the tracks write is atomic per-run, but says nothing specific about `cover_art_url`. The sources table's cover-art column is semantically part of the scrape output (SCRAPE-07).
