@@ -4,12 +4,13 @@ import { hstack, stack } from "styled-system/patterns";
 import { Badge } from "~/components/ui/badge";
 import * as Breadcrumb from "~/components/ui/breadcrumb";
 import { Text } from "~/components/ui/text";
+import type { Playlist } from "~/modules/client/playlist/schema/playlist";
 import { PlaylistService } from "~/modules/client/playlist/service/playlist";
 
 interface PlaylistHeaderProps {
 	name: string;
-	sourceType: string;
-	status: string;
+	sourceType: Playlist["source"]["type"];
+	status: Playlist["status"];
 }
 
 export function PlaylistHeader(props: PlaylistHeaderProps) {

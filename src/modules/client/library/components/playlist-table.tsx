@@ -3,15 +3,16 @@ import { For } from "solid-js";
 import { css } from "styled-system/css";
 import { Badge } from "~/components/ui/badge";
 import * as Table from "~/components/ui/table";
+import type { Playlist } from "~/modules/client/playlist/schema/playlist";
 import { PlaylistService } from "~/modules/client/playlist/service/playlist";
 
 interface PlaylistItem {
-	id: string | undefined;
+	id?: string;
 	name: string;
-	source: { type: string };
-	status: string;
+	source: Playlist["source"];
+	status: Playlist["status"];
 	outputDir: string;
-	updatedAt: Date | null;
+	updatedAt?: Date;
 }
 
 interface PlaylistTableProps {

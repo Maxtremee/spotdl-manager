@@ -45,14 +45,9 @@ export function playlistToRow(playlist: Playlist): NewSourceRow {
 		schedule: { type: "interval" as const, minutes: 1440 },
 	};
 
-	// Phase 1: "track" source type was dropped (D-11); v1 only supports
-	// playlists + albums. Reject at mapper boundary — plan 01-02 trims the
-	// Zod schema so this guard becomes unreachable.
-	if (playlist.source.type === "track") {
-		throw new Error(
-			"Source type 'track' is no longer supported; use 'playlist' or 'album'.",
-		);
-	}
+	// Phase 1: "track" source type was dropped (D-11); the Zod schema
+	// (plan 01-02) already narrows `playlist.source.type` to "playlist" | "album",
+	// so no runtime guard is needed here.
 	const sourceType: NewSourceRow["sourceType"] = playlist.source.type;
 
 	return {

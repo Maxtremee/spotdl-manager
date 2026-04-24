@@ -17,6 +17,7 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:generate": "drizzle-kit generate",
 		"db:push": "drizzle-kit push",
+		"reset:db": "node scripts/reset-db.mjs",
 		"docker:dev": "docker compose up --build",
 		"docker:build": "docker compose build",
 		"docker:down": "docker compose down",

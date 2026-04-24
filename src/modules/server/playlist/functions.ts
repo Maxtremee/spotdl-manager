@@ -104,21 +104,11 @@ export const deletePlaylistServerFn = createServerFn({ method: "POST" })
 	});
 
 // Define input schema for update playlist function
+// Phase 1: `flags` removed (D-12) — spotdl engine is gone; format is MP3-only
+// per REQUIREMENTS.md Out-of-Scope.
 const updatePlaylistInputSchema = z.object({
 	id: z.string().min(1),
 	status: z.enum(["active", "paused", "archived", "error"]).optional(),
-	flags: z
-		.object({
-			overwrite: z.boolean().optional(),
-			retries: z.number().int().min(0).max(10).optional(),
-			quality: z
-				.enum(["worst", "low", "medium", "high", "very_high", "lossless"])
-				.optional(),
-			format: z
-				.enum(["mp3", "flac", "ogg", "m4a", "opus", "vorbis", "wav"])
-				.optional(),
-		})
-		.optional(),
 	schedule: z
 		.object({
 			enabled: z.boolean().optional(),
@@ -145,7 +135,7 @@ export const updatePlaylistServerFn = createServerFn({ method: "POST" })
 	.inputValidator(updatePlaylistInputSchema)
 	.handler(async ({ data }) => {
 		try {
-			const { id, flags, schedule, ...rest } = data;
+			const { id, schedule, ...rest } = data;
 
 			// Fetch existing playlist to merge partial updates
 			const existing = await PlaylistRepository.getPlaylistById(id);
@@ -157,15 +147,6 @@ export const updatePlaylistServerFn = createServerFn({ method: "POST" })
 			const updates: Parameters<typeof PlaylistRepository.updatePlaylist>[1] = {
 				...rest,
 			};
-
-			if (flags) {
-				updates.flags = {
-					overwrite: flags.overwrite ?? existing.flags?.overwrite ?? false,
-					retries: flags.retries ?? existing.flags?.retries ?? 3,
-					quality: flags.quality ?? existing.flags?.quality ?? "high",
-					format: flags.format ?? existing.flags?.format ?? "mp3",
-				};
-			}
 
 			if (schedule) {
 				updates.schedule = {
