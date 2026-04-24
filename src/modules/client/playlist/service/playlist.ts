@@ -120,11 +120,10 @@ export const PlaylistService = {
 	 */
 	formatSourceType(
 		type: Playlist["source"]["type"],
-	): "Playlist" | "Album" | "Track" {
+	): "Playlist" | "Album" {
 		const labels = {
 			playlist: "Playlist",
 			album: "Album",
-			track: "Track",
 		} as const;
 		return labels[type];
 	},
