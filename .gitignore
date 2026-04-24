@@ -15,3 +15,8 @@ logs
 ## Panda
 styled-system
 styled-system-studio
+
+## Spike artifacts
+.planning/spikes/**/.venv/
+.planning/spikes/**/__pycache__/
+.planning/spikes/**/*_response.json
