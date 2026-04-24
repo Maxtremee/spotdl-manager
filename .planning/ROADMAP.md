@@ -15,7 +15,7 @@ This milestone swaps the download engine from the broken `spotdl` CLI to a `spot
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Schema reset & spotdl removal** (2026-04-24) - Rip out spotdl, introduce `tracks` table, clean-break DB wipe
-- [ ] **Phase 2: Spotify metadata via spotifyscraper** - Configured playlist URL populates `tracks` via `spotifyscraper` — no auth, no Chromium
+- [x] **Phase 2: Spotify metadata via spotifyscraper** (2026-04-24) - Configured playlist URL populates `tracks` via `spotifyscraper` — no auth, no Chromium
 - [ ] **Phase 3: Match + download slice (end-to-end MP3)** - Pending tracks resolve on YouTube, download via yt-dlp, and land as tagged MP3s on disk
 - [ ] **Phase 4: Album support & incremental rescrape** - Albums scrape identically (no 100-track cap); repeat syncs stop after 5 known-in-order tracks
 - [ ] **Phase 5: Per-track UI & retry model** - Track state badges, per-track manual retry, auto-retry of non-downloaded tracks
@@ -111,7 +111,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema reset & spotdl removal | 5/5 | Complete | 2026-04-24 |
-| 2. Spotify metadata via spotifyscraper | 0/6 | Not started | - |
+| 2. Spotify metadata via spotifyscraper | 6/6 | Complete | 2026-04-24 |
 | 3. Match + download slice (end-to-end MP3) | 0/TBD | Not started | - |
 | 4. Album support & incremental rescrape | 0/TBD | Not started | - |
 | 5. Per-track UI & retry model | 0/TBD | Not started | - |

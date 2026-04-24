@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A self-hosted, single-user web app that downloads Spotify playlists and albums as tagged MP3 files on a schedule. The existing `spotdl` CLI strategy broke due to Spotify API changes, so the app is pivoting to a Playwright-based pipeline: scrape playlist/album metadata from a logged-in Spotify session, resolve each track on YouTube via `yt-dlp`, and download to a local library.
+A self-hosted, single-user web app that downloads Spotify playlists and albums as tagged MP3 files on a schedule. The existing `spotdl` CLI strategy broke due to Spotify API changes, so the app is pivoting to a `spotifyscraper`-driven metadata path (no auth, no Chromium) feeding `yt-dlp`-based YouTube resolution to download tagged MP3s to a local library. Playlists are capped at 100 tracks (Spotify `/embed/playlist/` endpoint limit); albums are unaffected.
 
 ## Core Value
 
@@ -25,12 +25,14 @@ Scheduled, unattended downloads of Spotify playlists and albums as properly tagg
 
 <!-- The pivot milestone: replace the download engine. Hypotheses until shipped. -->
 
-**Spotify metadata acquisition (Playwright)**
-- [ ] One-time Spotify login via local CLI command; Playwright saves storage state to a persistent volume
-- [ ] Scrape playlist URLs using the saved session: track name, primary artist, duration (ms)
-- [ ] Scrape album URLs using the saved session (same fields)
-- [ ] Incremental rescrape heuristic: read newest-to-oldest; stop after 5 consecutive tracks already in our tracks table in the same order
-- [ ] Detect expired/invalid session; mark invocation failed; emit a `playlist.sync.failed` event with reason `session_expired`
+**Spotify metadata acquisition (spotifyscraper)**
+- [x] `spotifyscraper` v2.1.5 fetches public playlist metadata via `/embed/playlist/` — no auth, no Chromium — validated in Phase 2
+- [x] Python subprocess bridge (`scraper/scraper.py` + `SpotifyScraperBridge`) reads JSON from stdin, writes validated envelope to stdout, with typed error enum (`invalid_url`, `not_found`, `parse_error`, `network_error`, `python_crash`) — validated in Phase 2
+- [x] Playlist URL → tracks rows with `spotify_track_id` (derived from `uri.split(":")[-1]`), title, artist, duration_ms, position, state=pending — validated in Phase 2
+- [x] Source-level `cover_art_url` captured from largest-image URL for later ID3 embedding — validated in Phase 2
+- [x] Truncation detection: invocations summary + completed event payload carry `truncationSuspected=true` when tracks.length ≥ 100 — validated in Phase 2
+- [ ] Album URLs scrape identically (no 100-track cap) — deferred to Phase 4
+- [ ] Incremental rescrape: stop after 5 consecutive known-in-order tracks — deferred to Phase 4
 
 **Track state model**
 - [x] New `tracks` table keyed by `(source_id, spotify_track_id)` with: title, artist, duration_ms, match state, yt_video_id, download_path, failure_reason, timestamps — validated in Phase 1
@@ -48,13 +50,14 @@ Scheduled, unattended downloads of Spotify playlists and albums as properly tagg
 - [ ] Each scheduled sync auto-retries any track in `failed` or `skipped-low-confidence` state
 - [ ] User can manually retry any track (including successfully-downloaded ones) from the UI
 
-**Expiry / error surfaces**
-- [ ] UI banner when any recent invocation failed with `session_expired`; instructs the user to re-run the login CLI
-- [ ] Discord webhook fires for `session_expired` failures (reuses existing webhook integration)
+**Error surfaces**
+- [x] Typed failure reasons (`invalid_url`, `not_found`, `parse_error`, `network_error`, `python_crash`) — validated in Phase 2
+- [x] Discord webhook renders `failureReason` enum + T-2-05-sanitized error (≤200 chars) for failed syncs; `trackCount` line + `⚠️ possibly truncated` note for completed syncs — validated in Phase 2
+- [ ] UI badge per track showing state (matched / downloaded / skipped-low-confidence / failed) — Phase 5
 
 **Deployment**
-- [ ] Dockerfile based on slim Node image with Chromium (headless), yt-dlp, and ffmpeg installed
-- [ ] Login CLI (`pnpm login:spotify` or equivalent) is runnable via `docker exec` and writes storage state to the mounted `/data` volume
+- [ ] Production Dockerfile (slim Node + Python + spotifyscraper + yt-dlp + ffmpeg) — Phase 6
+- [x] Dev Dockerfile installs Python 3 + spotifyscraper venv at `/app/scraper/.venv/bin/python`, chowned to node:node — validated in Phase 2
 
 **Rip out spotdl**
 - [x] Remove `SpotdlInvocator`, `SpotdlRepository`, spotdl-specific schema columns, `SPOTDL_COOKIES_FILE`, and related UI — validated in Phase 1
@@ -96,8 +99,9 @@ Scheduled, unattended downloads of Spotify playlists and albums as properly tagg
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Pivot from spotdl to Playwright + yt-dlp | Spotify API changes broke spotdl's metadata path; continuing to wrap a broken tool isn't viable | — Pending |
-| Persistent Spotify session via one-time local CLI login | Only option that keeps the scheduler unattended; headful-per-sync blocks automation; cookie import is brittle | — Pending |
+| Pivot from spotdl to spotifyscraper + yt-dlp | spike 001 validated auth-free metadata fetch; no Chromium or Playwright required; removes the login/session surface entirely | ✓ Validated (Phase 2) |
+| 100-track cap accepted as milestone scope | Spotify `/embed/playlist/` endpoint caps at 100; albums unaffected; truncation surfaced in invocation summary + webhook | ✓ Validated (Phase 2) |
+| Python subprocess bridge over embedded runtime | Keeps Node surface thin; argv-form spawn (shell: false) prevents command injection; stdin JSON avoids argv URL exposure | ✓ Validated (Phase 2) |
 | `yt-dlp ytsearch1:` for YouTube resolution | Simplest possible matching path; avoids writing a custom scoring layer for v1 | — Pending |
 | Duration tolerance is the sole confidence gate; skip on mismatch | Prefer "no wrong file" over "always something"; user-visible skip state lets them intervene | — Pending |
 | Incremental rescrape: stop after 5 consecutive known-in-order tracks | Cuts scrape cost on large playlists; relies on "new tracks appear at top" assumption; removals are intentionally ignored | — Pending |
@@ -129,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after Phase 1 completion*
+*Last updated: 2026-04-24 after Phase 2 completion*
