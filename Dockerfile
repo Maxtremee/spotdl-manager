@@ -1,4 +1,4 @@
-# Production Dockerfile with spotdl and all dependencies
+# Production Dockerfile — Node runtime + ffmpeg + sqlite3 (Phase 7 will add Chromium + yt-dlp)
 # Multi-stage build for optimized image size
 
 # Stage 1: Dependencies and Build
@@ -35,17 +35,9 @@ FROM node:22-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
     ffmpeg \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
-
-# Install spotdl
-RUN pip3 install --no-cache-dir spotdl
-
-# Verify spotdl installation
-RUN spotdl --version
 
 # Enable pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
