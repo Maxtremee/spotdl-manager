@@ -4,7 +4,6 @@ import { z } from "zod";
 export const env = createEnv({
 	server: {
 		SERVER_URL: z.url().optional(),
-		SPOTDL_COOKIES_FILE: z.string().optional(),
 	},
 
 	/**
