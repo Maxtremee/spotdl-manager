@@ -1,0 +1,47 @@
+[
+  {
+    "label": "control-50",
+    "name": "Today\u2019s Top Hits",
+    "track_count_reported": 50,
+    "len_tracks_returned": 50,
+    "unique_uris": 50,
+    "elapsed_s": 0.27,
+    "truncated": false
+  },
+  {
+    "label": "rap-caviar",
+    "name": "RapCaviar",
+    "track_count_reported": 50,
+    "len_tracks_returned": 50,
+    "unique_uris": 50,
+    "elapsed_s": 0.55,
+    "truncated": false
+  },
+  {
+    "label": "all-out-2010s",
+    "name": "All Out 2010s",
+    "track_count_reported": 100,
+    "len_tracks_returned": 100,
+    "unique_uris": 100,
+    "elapsed_s": 0.51,
+    "truncated": false
+  },
+  {
+    "label": "rock-classics",
+    "name": "Rock Classics",
+    "track_count_reported": 100,
+    "len_tracks_returned": 100,
+    "unique_uris": 100,
+    "elapsed_s": 0.42,
+    "truncated": false
+  },
+  {
+    "label": "mega-user-playlist",
+    "name": "biggest playlist ever",
+    "track_count_reported": 100,
+    "len_tracks_returned": 100,
+    "unique_uris": 100,
+    "elapsed_s": 0.52,
+    "truncated": false
+  }
+]
