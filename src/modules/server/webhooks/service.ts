@@ -39,8 +39,15 @@ export const WebhookMessageFormatter = {
 
 	formatCompleted(event: PlaylistSyncCompletedEvent): string {
 		const duration = formatDuration(event.payload.duration);
+		const trackLine =
+			event.payload.trackCount !== undefined
+				? `\n> ${event.payload.trackCount} tracks`
+				: "";
+		const truncationLine = event.payload.truncationSuspected
+			? "\n> ⚠️ possibly truncated (Spotify 100-track cap — only first 100 tracks scraped)"
+			: "";
 		const summary = event.payload.summary ? `\n> ${event.payload.summary}` : "";
-		return `✅ Completed syncing **${event.payload.playlistName}** in ${duration}${summary}`;
+		return `✅ Completed syncing **${event.payload.playlistName}** in ${duration}${trackLine}${truncationLine}${summary}`;
 	},
 
 	formatFailed(event: PlaylistSyncFailedEvent): string {
@@ -48,7 +55,12 @@ export const WebhookMessageFormatter = {
 			event.payload.exitCode !== undefined
 				? ` (exit code: ${event.payload.exitCode})`
 				: "";
-		return `❌ Failed syncing **${event.payload.playlistName}**${exitCode}\n> ${event.payload.error}`;
+		const reasonLine = event.payload.failureReason
+			? `\n> reason: \`${event.payload.failureReason}\``
+			: "";
+		// T-2-05: one-line, bounded length — never leak full traceback to webhook.
+		const safeError = event.payload.error.replace(/\s+/g, " ").slice(0, 200);
+		return `❌ Failed syncing **${event.payload.playlistName}**${exitCode}${reasonLine}\n> ${safeError}`;
 	},
 };
 
