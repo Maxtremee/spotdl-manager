@@ -9,6 +9,19 @@ const BaseEventSchema = z.object({
 });
 
 /**
+ * Failure taxonomy for playlist.sync.failed events.
+ * Locked by Phase 2 D-09 — do not extend without updating webhook formatter (Plan 05).
+ */
+export const FailureReasonSchema = z.enum([
+	"invalid_url",
+	"not_found",
+	"parse_error",
+	"network_error",
+	"python_crash",
+]);
+export type FailureReason = z.infer<typeof FailureReasonSchema>;
+
+/**
  * Playlist sync started event
  */
 export const PlaylistSyncStartedEventSchema = BaseEventSchema.extend({
@@ -36,6 +49,10 @@ export const PlaylistSyncCompletedEventSchema = BaseEventSchema.extend({
 		summary: z.string().optional(),
 		logPath: z.string().optional(),
 		syncFilePath: z.string().optional(),
+		// Phase 2 D-10/D-11: surfaces when spotifyscraper's 100-track cap was hit.
+		truncationSuspected: z.boolean().optional(),
+		// Phase 2: informational count for webhook formatting.
+		trackCount: z.number().int().nonnegative().optional(),
 	}),
 });
 
@@ -51,6 +68,8 @@ export const PlaylistSyncFailedEventSchema = BaseEventSchema.extend({
 		error: z.string(),
 		exitCode: z.number().optional(),
 		logPath: z.string().optional(),
+		// Phase 2 D-09: typed failure taxonomy — webhook handler (Plan 05) branches on this.
+		failureReason: FailureReasonSchema.optional(),
 	}),
 });
 
