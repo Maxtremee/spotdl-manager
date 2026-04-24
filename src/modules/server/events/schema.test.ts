@@ -6,7 +6,9 @@ import {
 	PlaylistSyncFailedEventSchema,
 } from "./schema";
 
-const baseCompletedEvent = (payloadOverrides: Record<string, unknown> = {}) => ({
+const baseCompletedEvent = (
+	payloadOverrides: Record<string, unknown> = {},
+) => ({
 	id: randomUUID(),
 	timestamp: new Date(),
 	type: "playlist.sync.completed" as const,
