@@ -1,23 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SourceRow } from "../db/schema";
-import {
-	PlaylistSyncCompletedEventSchema,
-	PlaylistSyncStartedEventSchema,
-} from "../events/schema";
 
 type MockCronInstance = {
 	stop: ReturnType<typeof vi.fn>;
 	callback: any;
 };
 
-const { mockCronInstances, mockDbSelect, mockEventBusEmit } = vi.hoisted(
+const { mockCronInstances, mockDbSelect } = vi.hoisted(
 	() => ({
 		mockCronInstances: new Map<string, MockCronInstance>(),
 		mockDbSelect: vi.fn(),
-		// Typed as accepting the emit envelope so `.mock.calls[i][0]` is well-typed.
-		mockEventBusEmit: vi.fn((_event: { type: string; payload: any }) =>
-			Promise.resolve(),
-		),
 	}),
 );
 
@@ -53,14 +45,9 @@ vi.mock("../db", () => ({
 	},
 }));
 
-// Mock the event bus — stub emits via getEventBus().emit(...)
+// Mock the event bus — scheduler must NOT emit directly (W-2); SyncRunner does that.
 vi.mock("../events", () => ({
-	getEventBus: vi.fn(() => ({ emit: mockEventBusEmit })),
-}));
-
-// Mock crypto — deterministic invocationId for schema assertions
-vi.mock("node:crypto", () => ({
-	randomUUID: vi.fn(() => "00000000-0000-4000-8000-000000000001"),
+	getEventBus: vi.fn(() => ({ emit: vi.fn(() => Promise.resolve()) })),
 }));
 
 import { Cron } from "croner";
@@ -86,14 +73,18 @@ function createMockSource(overrides: Partial<SourceRow> = {}): SourceRow {
 	};
 }
 
-describe("PlaylistScheduler (Phase 1 stub)", () => {
+// Helper: create a mock SyncRunner
+function createMockRunner(runImpl: () => Promise<void> = () => Promise.resolve()) {
+	return { run: vi.fn(runImpl) } as any;
+}
+
+describe("PlaylistScheduler (Phase 2 — SyncRunner delegation)", () => {
 	let scheduler: PlaylistScheduler;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockCronInstances.clear();
 		mockDbSelect.mockResolvedValue([]);
-		scheduler = new PlaylistScheduler();
 	});
 
 	afterEach(() => {
@@ -103,7 +94,142 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 		vi.clearAllMocks();
 	});
 
+	// -------------------------------------------------------------------------
+	// Task 1 — SyncRunner delegation behaviors
+	// -------------------------------------------------------------------------
+
+	describe("SyncRunner delegation", () => {
+		it("Test 1: triggerManualSync delegates to syncRunner.run once with the source", async () => {
+			const runner = createMockRunner();
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+			const source = createMockSource();
+
+			const result = await scheduler.triggerManualSync(source);
+
+			// Returns "triggered" immediately (fire-and-forget)
+			expect(result).toBe("triggered");
+
+			// Allow the microtask queue to flush the background run
+			await Promise.resolve();
+
+			expect(runner.run).toHaveBeenCalledTimes(1);
+			expect(runner.run).toHaveBeenCalledWith(source);
+		});
+
+		it("Test 1b: runningPlaylists guard is true during run and false after", async () => {
+			let sawRunning = false;
+			const source = createMockSource();
+
+			const runner = {
+				run: vi.fn(async () => {
+					// Inside the run, the guard should be active
+					sawRunning = scheduler.isRunning(source.id);
+				}),
+			} as any;
+
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+
+			void scheduler.triggerManualSync(source);
+
+			// Allow the async run to complete
+			await new Promise((r) => setTimeout(r, 10));
+
+			expect(sawRunning).toBe(true);
+			// After run completes, the guard is cleared
+			expect(scheduler.isRunning(source.id)).toBe(false);
+		});
+
+		it("Test 2: manual+scheduled race — second call short-circuits (D-06)", async () => {
+			let resolveRun!: () => void;
+			const runPromise = new Promise<void>((r) => {
+				resolveRun = r;
+			});
+			const runner = { run: vi.fn(() => runPromise) } as any;
+
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+			const source = createMockSource();
+
+			// First call — starts but doesn't finish
+			const p1 = scheduler.triggerManualSync(source);
+			expect(await p1).toBe("triggered");
+
+			// Second call — guard short-circuits because first is still running
+			const p2 = scheduler.triggerManualSync(source);
+			expect(await p2).toBeNull();
+
+			// Only one run invocation despite two calls
+			expect(runner.run).toHaveBeenCalledTimes(1);
+
+			// Finish first run
+			resolveRun();
+			await runPromise;
+		});
+
+		it("Test 3: sequential calls both succeed after first finishes", async () => {
+			const runner = createMockRunner();
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+			const source = createMockSource();
+
+			// First sync
+			await scheduler.triggerManualSync(source);
+			await new Promise((r) => setTimeout(r, 10));
+
+			// Second sync after first finishes
+			const result2 = await scheduler.triggerManualSync(source);
+			expect(result2).toBe("triggered");
+			await new Promise((r) => setTimeout(r, 10));
+
+			// Both calls should have invoked runner.run
+			expect(runner.run).toHaveBeenCalledTimes(2);
+		});
+
+		it("Test 4: runner throw cleans up runningPlaylists (guard not poisoned)", async () => {
+			const runner = {
+				run: vi.fn().mockRejectedValue(new Error("scrape boom")),
+			} as any;
+
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+			const source = createMockSource();
+
+			await scheduler.triggerManualSync(source);
+			// Allow the rejected promise to settle (fire-and-forget)
+			await new Promise((r) => setTimeout(r, 20));
+
+			// Guard must be cleared even though run threw
+			expect(scheduler.isRunning(source.id)).toBe(false);
+
+			// Subsequent call should succeed
+			const result2 = await scheduler.triggerManualSync(source);
+			expect(result2).toBe("triggered");
+		});
+
+		it("Test 5: scheduler does NOT call getEventBus() directly during executePlaylistSync", async () => {
+			// getEventBus is mocked — we want to ensure the scheduler itself never emits
+			const { getEventBus } = await import("../events");
+			const mockBus = { emit: vi.fn(() => Promise.resolve()) };
+			vi.mocked(getEventBus).mockReturnValue(mockBus as any);
+
+			const runner = createMockRunner();
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+			const source = createMockSource();
+
+			await scheduler.triggerManualSync(source);
+			await new Promise((r) => setTimeout(r, 20));
+
+			// Scheduler itself must not emit any events — SyncRunner owns that
+			expect(mockBus.emit).not.toHaveBeenCalled();
+		});
+	});
+
+	// -------------------------------------------------------------------------
+	// Unchanged behaviors — cron expression conversion
+	// -------------------------------------------------------------------------
+
 	describe("intervalToCron", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should convert minutes less than 60 to every N minutes cron", () => {
 			const source = createMockSource({
 				scheduleType: "interval",
@@ -150,6 +276,10 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 	});
 
 	describe("schedulePlaylist", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should schedule a source with cron expression", () => {
 			const source = createMockSource({
 				scheduleType: "cron",
@@ -213,6 +343,10 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 	});
 
 	describe("unschedulePlaylist", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should remove a scheduled source", () => {
 			const source = createMockSource();
 			scheduler.schedulePlaylist(source);
@@ -233,6 +367,10 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 	});
 
 	describe("initialize", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should load and schedule all enabled sources from database", async () => {
 			const sources = [
 				createMockSource({ id: "src-1", name: "One" }),
@@ -258,6 +396,10 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 	});
 
 	describe("reload", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should stop all tasks and reinitialise", async () => {
 			mockDbSelect.mockResolvedValue([createMockSource({ id: "a" })]);
 
@@ -278,6 +420,10 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 	});
 
 	describe("shutdown", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should stop all scheduled tasks", async () => {
 			mockDbSelect.mockResolvedValue([
 				createMockSource({ id: "src-1" }),
@@ -293,68 +439,33 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 		});
 	});
 
-	describe("executePlaylistSync (stub)", () => {
-		it("emits started then completed on each tick — no DB writes", async () => {
+	describe("concurrency guard (tick path)", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
+		it("second simultaneous cron tick is skipped by the running-set guard", async () => {
+			let resolveRun!: () => void;
+			const runPromise = new Promise<void>((r) => {
+				resolveRun = r;
+			});
+			const runner = { run: vi.fn(() => runPromise) } as any;
+			scheduler = new PlaylistScheduler({ syncRunner: runner });
+
 			const source = createMockSource();
 			scheduler.schedulePlaylist(source);
 
 			const cronInstance = mockCronInstances.get("0 6 * * *");
 			expect(cronInstance).toBeDefined();
 
-			await cronInstance?.callback();
+			const p1 = cronInstance!.callback();
+			const p2 = cronInstance!.callback();
 
-			expect(mockEventBusEmit).toHaveBeenCalledTimes(2);
-			expect(mockEventBusEmit.mock.calls[0][0].type).toBe(
-				"playlist.sync.started",
-			);
-			expect(mockEventBusEmit.mock.calls[1][0].type).toBe(
-				"playlist.sync.completed",
-			);
-		});
+			// Second tick is short-circuited — only one runner.run call
+			expect(runner.run).toHaveBeenCalledTimes(1);
 
-		it("started payload satisfies Zod schema", async () => {
-			const source = createMockSource();
-			scheduler.schedulePlaylist(source);
-
-			await mockCronInstances.get("0 6 * * *")?.callback();
-
-			const started = mockEventBusEmit.mock.calls[0][0];
-			expect(() =>
-				PlaylistSyncStartedEventSchema.shape.payload.parse(started.payload),
-			).not.toThrow();
-			expect(started.payload.playlistId).toBe(source.id);
-			expect(started.payload.playlistName).toBe(source.name);
-			expect(started.payload.sourceUrl).toBe(source.sourceUrl);
-			expect(started.payload.outputDir).toBe(source.outputDir);
-		});
-
-		it("completed payload has positive duration (Pitfall 2 guard)", async () => {
-			const source = createMockSource();
-			scheduler.schedulePlaylist(source);
-
-			await mockCronInstances.get("0 6 * * *")?.callback();
-
-			const completed = mockEventBusEmit.mock.calls[1][0];
-			expect(() =>
-				PlaylistSyncCompletedEventSchema.shape.payload.parse(completed.payload),
-			).not.toThrow();
-			expect(completed.payload.duration).toBeGreaterThan(0);
-			expect(completed.payload.exitCode).toBe(0);
-		});
-
-		it("concurrency guard — second simultaneous tick is skipped", async () => {
-			const source = createMockSource();
-			scheduler.schedulePlaylist(source);
-
-			const cronInstance = mockCronInstances.get("0 6 * * *");
-			expect(cronInstance).toBeDefined();
-			const cb = cronInstance!.callback;
-			const p1 = cb();
-			const p2 = cb();
+			resolveRun();
 			await Promise.all([p1, p2]);
-
-			// Only the first tick emits; the second is skipped by the running-set guard.
-			expect(mockEventBusEmit).toHaveBeenCalledTimes(2);
 		});
 	});
 
@@ -368,6 +479,10 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 	});
 
 	describe("multiple sources with different schedules", () => {
+		beforeEach(() => {
+			scheduler = new PlaylistScheduler({ syncRunner: createMockRunner() });
+		});
+
 		it("should schedule sources with different cron expressions", () => {
 			const sources = [
 				createMockSource({

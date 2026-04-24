@@ -41,7 +41,7 @@ export default (nitroApp: NitroApp) => {
 	pluginLogger.info("Metrics handler registered");
 
 	// Auto-reload scheduler on playlist changes
-	const scheduler = getScheduler(schedulerLogger);
+	const scheduler = getScheduler({ logger: schedulerLogger });
 	registerSchedulerReloadHandler(async () => {
 		await scheduler.reload();
 	});

@@ -11,7 +11,7 @@ let initialized = false;
 export default (nitroApp: NitroApp) => {
 	const pluginLogger = Logger.get("SchedulerPlugin");
 	const schedulerLogger = Logger.get("PlaylistScheduler");
-	const scheduler = getScheduler(schedulerLogger);
+	const scheduler = getScheduler({ logger: schedulerLogger });
 
 	// Initialize scheduler asynchronously after plugin loads
 	// This runs once when the server starts

@@ -1,34 +1,37 @@
-import { randomUUID } from "node:crypto";
 import { Cron } from "croner";
 import { and, eq } from "drizzle-orm";
 import type { AppLogger } from "../../../logger";
 import { Logger } from "../../../logger";
 import { getDb, schema } from "../db";
 import type { SourceRow } from "../db/schema";
-import { getEventBus } from "../events";
+import { SyncRunner } from "../scraper/SyncRunner";
 
 /**
  * Manages scheduled sync jobs using croner.
  *
- * Phase 1 (this file): the tick body is an **event-emitting no-op**. Each
- * tick fires `playlist.sync.started` immediately followed by
- * `playlist.sync.completed` via the existing event bus — no scrape, no
- * download, no invocation row. This keeps the webhook / metrics / duration
- * warning / logging handlers warm through the interim before the Phase 3
- * engine lands.
+ * Phase 2 (this file): the tick body delegates to SyncRunner.run(source).
+ * Scheduler owns ONLY: cron scheduling + the runningPlaylists concurrency
+ * guard (D-06 shared for scheduled + manual triggers). All DB writes, events,
+ * and Python-subprocess lifecycle belong to SyncRunner.
  *
- * Locked decisions (see `.planning/phases/01-schema-reset-spotdl-removal/01-CONTEXT.md`):
- * - D-01 scheduler stays wired, ticks on its cron/interval schedule.
- * - D-02 stub ticks emit `playlist.sync.started` + `playlist.sync.completed`.
- * - D-03 stub ticks do NOT create `invocations` rows. Events only.
+ * Locked decisions:
+ * - D-05 scheduler tick does real scrape work via SyncRunner. Note: D-05's
+ *   "Scheduler keeps emitting" wording refers to the scheduled path
+ *   continuing to produce `playlist.sync.*` events — the emission code
+ *   itself moved into SyncRunner so scheduled + manual triggers share one
+ *   lifecycle-event path. Do NOT re-introduce eventBus.emit calls here.
+ * - D-06 manual trigger shares the same guard via triggerManualSync
+ * - D-07 invocations rows written by SyncRunner (not the scheduler)
  */
 export class PlaylistScheduler {
 	private readonly tasks: Map<string, Cron> = new Map();
 	private readonly runningPlaylists: Set<string> = new Set();
 	private readonly logger: AppLogger;
+	private readonly syncRunner: SyncRunner;
 
-	constructor(logger?: AppLogger) {
-		this.logger = logger ?? Logger.get("SchedulerStub");
+	constructor(deps: { logger?: AppLogger; syncRunner?: SyncRunner } = {}) {
+		this.logger = deps.logger ?? Logger.get("PlaylistScheduler");
+		this.syncRunner = deps.syncRunner ?? new SyncRunner();
 	}
 
 	/**
@@ -71,62 +74,32 @@ export class PlaylistScheduler {
 	}
 
 	/**
-	 * Phase 1 stub: emit `playlist.sync.started` then `playlist.sync.completed`
-	 * with no work in between. No DB writes (D-03). A concurrency guard
-	 * prevents a same-source tick from overlapping itself — the running-set
-	 * entry is added *before* the first `await` so simultaneous invocations
-	 * see the guard.
+	 * Execute a playlist sync, guarded by the runningPlaylists Set.
 	 *
-	 * Duration is `Math.max(1, elapsedMs)` because the `duration` field in
-	 * `PlaylistSyncCompletedEventSchema` is `z.number().positive()` and a
-	 * 0-ms synchronous tick would be rejected by Zod, silently dropping
-	 * downstream handlers. (Pitfall 2 guard.)
+	 * This is a thin guard-wrapped delegation to SyncRunner.run(source).
+	 * The guard entry is added BEFORE the first await (TOCTOU-safe per
+	 * research Pitfall 5). All event emissions, DB writes, and subprocess
+	 * lifecycle belong to SyncRunner — do NOT add eventBus.emit calls here.
 	 */
 	private async executePlaylistSync(source: SourceRow): Promise<void> {
 		if (this.runningPlaylists.has(source.id)) {
 			this.logger.warn(
 				{ sourceId: source.id, sourceName: source.name },
-				"Stub: source already ticking, skipping",
+				"Source already running — skipping concurrent tick",
 			);
 			return;
 		}
-
 		this.runningPlaylists.add(source.id);
-		const invocationId = randomUUID();
-		const startedAt = Date.now();
-		const eventBus = getEventBus();
-
 		try {
-			await eventBus.emit({
-				type: "playlist.sync.started",
-				payload: {
-					playlistId: source.id,
-					playlistName: source.name,
-					invocationId,
-					sourceUrl: source.sourceUrl,
-					outputDir: source.outputDir,
-				},
-			});
-
-			this.logger.info(
-				{ sourceId: source.id, sourceName: source.name },
-				"Scheduler stub tick — no engine attached (Phase 1)",
+			await this.syncRunner.run(source);
+		} catch (err) {
+			// SyncRunner.run is expected to handle its own errors and always emit
+			// a terminal event (Pitfall 8). If it throws anyway, log and swallow —
+			// the guard must be released regardless (see finally below).
+			this.logger.error(
+				{ err, sourceId: source.id, sourceName: source.name },
+				"Unexpected error from SyncRunner.run — guard released",
 			);
-
-			// Pitfall 2: Zod `z.number().positive()` rejects 0, so floor to 1ms.
-			const duration = Math.max(1, Date.now() - startedAt);
-
-			await eventBus.emit({
-				type: "playlist.sync.completed",
-				payload: {
-					playlistId: source.id,
-					playlistName: source.name,
-					invocationId,
-					duration,
-					exitCode: 0,
-					summary: "Phase 1 stub — no engine attached",
-				},
-			});
 		} finally {
 			this.runningPlaylists.delete(source.id);
 		}
@@ -208,7 +181,7 @@ export class PlaylistScheduler {
 	 * Initialize the scheduler by loading all scheduled sources from the database.
 	 */
 	async initialize(): Promise<void> {
-		this.logger.info("Initializing scheduler stub...");
+		this.logger.info("Initializing scheduler...");
 
 		const sources = await this.getScheduledSources();
 		this.logger.info(
@@ -220,14 +193,14 @@ export class PlaylistScheduler {
 			this.schedulePlaylist(source);
 		}
 
-		this.logger.info("Scheduler stub initialized");
+		this.logger.info("Scheduler initialized");
 	}
 
 	/**
 	 * Reload schedules from database (useful when sources are updated).
 	 */
 	async reload(): Promise<void> {
-		this.logger.info("Reloading scheduler stub...");
+		this.logger.info("Reloading scheduler...");
 
 		// Stop all current tasks
 		for (const [sourceId] of this.tasks) {
@@ -242,11 +215,11 @@ export class PlaylistScheduler {
 	 * Stop all scheduled tasks.
 	 */
 	shutdown(): void {
-		this.logger.info("Shutting down scheduler stub...");
+		this.logger.info("Shutting down scheduler...");
 		for (const [sourceId] of this.tasks) {
 			this.unschedulePlaylist(sourceId);
 		}
-		this.logger.info("Scheduler stub stopped");
+		this.logger.info("Scheduler stopped");
 	}
 
 	/**
@@ -273,27 +246,30 @@ export class PlaylistScheduler {
 	/**
 	 * Manually trigger a sync.
 	 *
-	 * Phase 1 note (Pitfall 5): the UI "Run Now" button is hidden in Plan 01-02
-	 * per D-04, but this server function is intentionally preserved so Phase 3
-	 * can re-enable the button without re-plumbing the public method surface.
-	 * The call body (`executePlaylistSync`) currently runs the event-emitting
-	 * stub.
-	 *
 	 * Returns "triggered" if started; null if the source is already running.
+	 *
+	 * Fire-and-forget: caller (server fn) returns "triggered" immediately;
+	 * the sync runs in the background and emits completion via EventBus.
+	 * The guard is added synchronously inside executePlaylistSync, so a
+	 * back-to-back call that races this line sees the guard on entry.
+	 *
+	 * IMPORTANT: executePlaylistSync adds to runningPlaylists BEFORE any
+	 * await — it's the first synchronous statement after the guard check.
+	 * This closes the TOCTOU window mentioned in research Pitfall 5.
 	 */
 	async triggerManualSync(source: SourceRow): Promise<string | null> {
 		if (this.runningPlaylists.has(source.id)) {
 			this.logger.warn(
 				{ sourceId: source.id, sourceName: source.name },
-				"Source is already running, cannot trigger manual sync",
+				"Source already running — manual sync rejected",
 			);
 			return null;
 		}
 
-		// Execute sync in background (don't await, let it run async)
-		this.executePlaylistSync(source);
-
-		// Return early — the sync is now running.
+		// Fire-and-forget: caller returns "triggered" immediately while
+		// the sync runs in the background via EventBus emissions.
+		// The void prefix makes the fire-and-forget intent explicit to linters.
+		void this.executePlaylistSync(source);
 		return "triggered";
 	}
 }
@@ -304,9 +280,12 @@ let schedulerInstance: PlaylistScheduler | null = null;
 /**
  * Get or create the singleton scheduler instance.
  */
-export function getScheduler(logger?: AppLogger): PlaylistScheduler {
+export function getScheduler(deps?: {
+	logger?: AppLogger;
+	syncRunner?: SyncRunner;
+}): PlaylistScheduler {
 	if (!schedulerInstance) {
-		schedulerInstance = new PlaylistScheduler(logger);
+		schedulerInstance = new PlaylistScheduler(deps);
 	}
 	return schedulerInstance;
 }
