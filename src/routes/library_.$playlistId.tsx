@@ -2,12 +2,14 @@ import { createFileRoute, useRouter } from "@tanstack/solid-router";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { createSignal } from "solid-js";
 import { z } from "zod";
+import { Button } from "~/components/ui/button";
 import { DeletePlaylistDialog } from "~/modules/client/playlist/components/delete-playlist-dialog";
 import { PlaylistConfigCard } from "~/modules/client/playlist/components/playlist-config-card";
 import { PlaylistHeader } from "~/modules/client/playlist/components/playlist-header";
 import { SyncHistoryCard } from "~/modules/client/playlist/components/sync-history-card";
 import {
 	deletePlaylist,
+	triggerSync,
 	updateStatus,
 } from "~/modules/client/playlist/service/playlist-actions";
 import { getPlaylistDetailsServerFn } from "~/modules/server/playlist/functions";
@@ -37,6 +39,7 @@ function PlaylistDetails() {
 	const router = useRouter();
 	const [isUpdating, setIsUpdating] = createSignal(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
+	const [isSyncing, setIsSyncing] = createSignal(false);
 
 	const playlist = () => data().playlist;
 	const invocations = () => data().invocations;
@@ -58,6 +61,14 @@ function PlaylistDetails() {
 			},
 		);
 		setIsUpdating(false);
+	};
+
+	const handleSyncNow = async () => {
+		setIsSyncing(true);
+		await triggerSync(playlist().id!, {
+			onSuccess: () => router.invalidate(),
+		});
+		setIsSyncing(false);
 	};
 
 	const handlePageChange = (page: number) => {
@@ -82,6 +93,15 @@ function PlaylistDetails() {
 				status={playlist().status}
 				isUpdating={isUpdating}
 				onStatusChange={handleStatusChange}
+				syncAction={
+					<Button
+						variant="solid"
+						disabled={isSyncing() || playlist().status !== "active"}
+						onClick={handleSyncNow}
+					>
+						{isSyncing() ? "Syncing…" : "Sync now"}
+					</Button>
+				}
 				deleteDialog={
 					<DeletePlaylistDialog
 						open={deleteDialogOpen}

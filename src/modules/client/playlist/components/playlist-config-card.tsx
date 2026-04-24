@@ -25,6 +25,7 @@ interface PlaylistConfigCardProps {
 	isUpdating: Accessor<boolean>;
 	onStatusChange: (status: string) => void;
 	deleteDialog: JSX.Element;
+	syncAction?: JSX.Element;
 }
 
 export function PlaylistConfigCard(props: PlaylistConfigCardProps) {
@@ -33,7 +34,10 @@ export function PlaylistConfigCard(props: PlaylistConfigCardProps) {
 			<Card.Header>
 				<div class={hstack({ justify: "space-between", w: "full" })}>
 					<Card.Title>Playlist Configuration</Card.Title>
-					<div class={hstack({ gap: "2" })}>{props.deleteDialog}</div>
+					<div class={hstack({ gap: "2" })}>
+						{props.syncAction}
+						{props.deleteDialog}
+					</div>
 				</div>
 			</Card.Header>
 			<Card.Body>
