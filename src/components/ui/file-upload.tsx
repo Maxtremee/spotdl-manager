@@ -13,7 +13,7 @@ import {
 	Stack,
 } from "styled-system/jsx";
 import { fileUpload } from "styled-system/recipes";
-import { Span } from "@/components/ui";
+import { Span } from "~/components/ui/span";
 
 const { withProvider, withContext } = createStyleContext(fileUpload);
 
