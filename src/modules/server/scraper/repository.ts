@@ -76,8 +76,7 @@ export class ScraperRepository {
 					updatedAt: now,
 				}));
 
-				tx
-					.insert(schema.tracks)
+				tx.insert(schema.tracks)
 					.values(values)
 					.onConflictDoUpdate({
 						target: [schema.tracks.sourceId, schema.tracks.spotifyTrackId],
@@ -99,8 +98,7 @@ export class ScraperRepository {
 			// coverArtUrl === null means "envelope had no image" — skip to avoid
 			// overwriting a previously-stored URL with null.
 			if (coverArtUrl !== null) {
-				tx
-					.update(schema.sources)
+				tx.update(schema.sources)
 					.set({ coverArtUrl, updatedAt: new Date() })
 					.where(eq(schema.sources.id, sourceId))
 					.run();
@@ -108,7 +106,11 @@ export class ScraperRepository {
 		});
 
 		this.logger.debug(
-			{ sourceId, trackCount: tracks.length, hasCoverArt: coverArtUrl !== null },
+			{
+				sourceId,
+				trackCount: tracks.length,
+				hasCoverArt: coverArtUrl !== null,
+			},
 			"ScraperRepository.upsertAll complete",
 		);
 	}

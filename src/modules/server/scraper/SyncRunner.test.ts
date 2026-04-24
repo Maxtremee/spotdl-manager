@@ -6,9 +6,9 @@
  * No real DB is touched — invocationRepo and scraperRepo are vitest fakes.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PYTHON_CRASH_PREFIX } from "./schema";
-import { SyncRunner, isValidPlaylistUrl } from "./SyncRunner";
 import type { SourceRow } from "../db/schema";
+import { isValidPlaylistUrl, SyncRunner } from "./SyncRunner";
+import { PYTHON_CRASH_PREFIX } from "./schema";
 
 // ---------------------------------------------------------------------------
 // Module-level mock: getEventBus — intercept all bus.emit() calls
@@ -16,7 +16,7 @@ import type { SourceRow } from "../db/schema";
 
 const emitSpy = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("~/modules/server/events", () => ({
+vi.mock("../events", () => ({
 	getEventBus: () => ({ emit: emitSpy }),
 }));
 
@@ -33,13 +33,20 @@ function fakeBridge(envelope: {
 		position: number;
 	}> | null;
 	cover_art_url: string | null;
-	error: { type: "invalid_url" | "not_found" | "parse_error" | "network_error"; message: string } | null;
+	error: {
+		type: "invalid_url" | "not_found" | "parse_error" | "network_error";
+		message: string;
+	} | null;
 }) {
-	return { fetchPlaylist: vi.fn().mockResolvedValue(envelope) } as unknown as import("./SpotifyScraperBridge").SpotifyScraperBridge;
+	return {
+		fetchPlaylist: vi.fn().mockResolvedValue(envelope),
+	} as unknown as import("./SpotifyScraperBridge").SpotifyScraperBridge;
 }
 
 function fakeBridgeThrows(err: Error) {
-	return { fetchPlaylist: vi.fn().mockRejectedValue(err) } as unknown as import("./SpotifyScraperBridge").SpotifyScraperBridge;
+	return {
+		fetchPlaylist: vi.fn().mockRejectedValue(err),
+	} as unknown as import("./SpotifyScraperBridge").SpotifyScraperBridge;
 }
 
 function fakeInvocationRepo(opts: { createThrows?: Error } = {}) {
@@ -125,10 +132,13 @@ describe("SyncRunner.run", () => {
 		// repo.upsertAll called with 3 tracks
 		expect(scraperRepo.upsertAll).toHaveBeenCalledWith(
 			"src-1",
-			expect.arrayContaining([expect.objectContaining({ spotifyTrackId: "track-0" })]),
+			expect.arrayContaining([
+				expect.objectContaining({ spotifyTrackId: "track-0" }),
+			]),
 			"https://covers.example.com/img.jpg",
 		);
-		const upsertCall = (scraperRepo.upsertAll as ReturnType<typeof vi.fn>).mock.calls[0];
+		const upsertCall = (scraperRepo.upsertAll as ReturnType<typeof vi.fn>).mock
+			.calls[0];
 		expect(upsertCall[1]).toHaveLength(3);
 
 		// invocation updated to success
@@ -154,7 +164,9 @@ describe("SyncRunner.run", () => {
 		const scraperRepo = fakeScraperRepo();
 		const runner = new SyncRunner({ bridge, invocationRepo, scraperRepo });
 
-		await runner.run(sourceRow({ sourceUrl: "https://evil.example.com/playlist/x" }));
+		await runner.run(
+			sourceRow({ sourceUrl: "https://evil.example.com/playlist/x" }),
+		);
 
 		// Bridge must NOT be invoked
 		expect(bridge.fetchPlaylist).not.toHaveBeenCalled();
@@ -182,7 +194,11 @@ describe("SyncRunner.run", () => {
 			cover_art_url: null,
 			error: { type: "not_found", message: "Playlist not found" },
 		});
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -198,7 +214,11 @@ describe("SyncRunner.run", () => {
 			cover_art_url: null,
 			error: { type: "parse_error", message: "Unexpected shape" },
 		});
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -214,7 +234,11 @@ describe("SyncRunner.run", () => {
 			cover_art_url: null,
 			error: { type: "network_error", message: "ConnectionError()" },
 		});
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -235,7 +259,11 @@ describe("SyncRunner.run", () => {
 			},
 		};
 		const bridge = fakeBridge(crashEnvelope);
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -248,7 +276,11 @@ describe("SyncRunner.run", () => {
 
 	it("Test 7: truncation >=100 — truncationSuspected=true, trackCount=100", async () => {
 		const bridge = fakeBridge(happyEnvelope(100));
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -259,16 +291,20 @@ describe("SyncRunner.run", () => {
 		expect(completedEvent![0].payload.trackCount).toBe(100);
 
 		// invocation summary also contains truncation_suspected=true
-		const invocationRepo = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const invocationRepo = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 		// Just verify the event payload is sufficient — summary is tested below via update call
-		const invUpdate = (new SyncRunner({
+		const invUpdate = new SyncRunner({
 			bridge: fakeBridge(happyEnvelope(100)),
 			invocationRepo: {
 				create: vi.fn().mockResolvedValue({ id: "inv-1" }),
 				update: vi.fn().mockResolvedValue({ id: "inv-1" }),
 			} as unknown as import("../invocation/repository").InvocationRepository,
 			scraperRepo: fakeScraperRepo(),
-		}));
+		});
 		const invocationRepoSpy = fakeInvocationRepo();
 		const runner2 = new SyncRunner({
 			bridge: fakeBridge(happyEnvelope(100)),
@@ -288,7 +324,11 @@ describe("SyncRunner.run", () => {
 
 	it("Test 8: exactly 99 tracks → truncationSuspected=false", async () => {
 		const bridge = fakeBridge(happyEnvelope(99));
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -301,7 +341,11 @@ describe("SyncRunner.run", () => {
 
 	it("Test 9: exactly 100 tracks → truncationSuspected=true (>= boundary)", async () => {
 		const bridge = fakeBridge(happyEnvelope(100));
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -335,7 +379,9 @@ describe("SyncRunner.run", () => {
 
 	it("Test 11: unexpected throw (invocationRepo.create throws) → terminal event always fires (Pitfall 8)", async () => {
 		const bridge = fakeBridge(happyEnvelope());
-		const invocationRepo = fakeInvocationRepo({ createThrows: new Error("DB gone") });
+		const invocationRepo = fakeInvocationRepo({
+			createThrows: new Error("DB gone"),
+		});
 		const scraperRepo = fakeScraperRepo();
 		const runner = new SyncRunner({ bridge, invocationRepo, scraperRepo });
 
@@ -350,8 +396,16 @@ describe("SyncRunner.run", () => {
 	});
 
 	it("Test 12: bridge returns null tracks without error → python_crash (defensive)", async () => {
-		const bridge = fakeBridge({ tracks: null, cover_art_url: null, error: null });
-		const runner = new SyncRunner({ bridge, invocationRepo: fakeInvocationRepo(), scraperRepo: fakeScraperRepo() });
+		const bridge = fakeBridge({
+			tracks: null,
+			cover_art_url: null,
+			error: null,
+		});
+		const runner = new SyncRunner({
+			bridge,
+			invocationRepo: fakeInvocationRepo(),
+			scraperRepo: fakeScraperRepo(),
+		});
 
 		await runner.run(sourceRow());
 
@@ -364,27 +418,39 @@ describe("SyncRunner.run", () => {
 
 describe("isValidPlaylistUrl", () => {
 	it("accepts valid Spotify playlist URL", () => {
-		expect(isValidPlaylistUrl("https://open.spotify.com/playlist/abc123")).toBe(true);
+		expect(isValidPlaylistUrl("https://open.spotify.com/playlist/abc123")).toBe(
+			true,
+		);
 	});
 
 	it("accepts playlist URL with query string", () => {
-		expect(isValidPlaylistUrl("https://open.spotify.com/playlist/abc?si=123")).toBe(true);
+		expect(
+			isValidPlaylistUrl("https://open.spotify.com/playlist/abc?si=123"),
+		).toBe(true);
 	});
 
 	it("rejects album URL (Phase 2 only validates /playlist/)", () => {
-		expect(isValidPlaylistUrl("https://open.spotify.com/album/abc123")).toBe(false);
+		expect(isValidPlaylistUrl("https://open.spotify.com/album/abc123")).toBe(
+			false,
+		);
 	});
 
 	it("rejects evil host", () => {
-		expect(isValidPlaylistUrl("https://evil.example.com/playlist/abc")).toBe(false);
+		expect(isValidPlaylistUrl("https://evil.example.com/playlist/abc")).toBe(
+			false,
+		);
 	});
 
 	it("rejects subdomain of open.spotify.com", () => {
-		expect(isValidPlaylistUrl("https://api.open.spotify.com/playlist/abc")).toBe(false);
+		expect(
+			isValidPlaylistUrl("https://api.open.spotify.com/playlist/abc"),
+		).toBe(false);
 	});
 
 	it("rejects /track/ path", () => {
-		expect(isValidPlaylistUrl("https://open.spotify.com/track/abc")).toBe(false);
+		expect(isValidPlaylistUrl("https://open.spotify.com/track/abc")).toBe(
+			false,
+		);
 	});
 
 	it("rejects non-URL garbage", () => {

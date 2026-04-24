@@ -2,10 +2,11 @@
  * ScraperRepository tests — in-memory SQLite via better-sqlite3 + the latest
  * Drizzle migration (W-5: do NOT hand-write CREATE TABLE).
  */
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+
 import fs from "node:fs";
 import path from "node:path";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../db/schema";
 import { ScraperRepository } from "./repository";
@@ -34,13 +35,15 @@ function createTestDb() {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeTrack(overrides: Partial<{
-	spotifyTrackId: string;
-	title: string;
-	artist: string;
-	durationMs: number;
-	position: number;
-}> = {}) {
+function makeTrack(
+	overrides: Partial<{
+		spotifyTrackId: string;
+		title: string;
+		artist: string;
+		durationMs: number;
+		position: number;
+	}> = {},
+) {
 	return {
 		spotifyTrackId: "track-001",
 		title: "Test Song",
@@ -70,7 +73,11 @@ let repo: ScraperRepository;
 
 beforeEach(() => {
 	db = createTestDb();
-	repo = new ScraperRepository(db as unknown as Parameters<typeof ScraperRepository.prototype.constructor>[0]);
+	repo = new ScraperRepository(
+		db as unknown as Parameters<
+			typeof ScraperRepository.prototype.constructor
+		>[0],
+	);
 });
 
 describe("ScraperRepository.upsertAll", () => {
@@ -93,7 +100,11 @@ describe("ScraperRepository.upsertAll", () => {
 
 	it("Test 2: upsert preserves state/ytVideoId/downloadPath/failureReason on conflict (D-14)", async () => {
 		await seedSource(db);
-		await repo.upsertAll("src-1", [makeTrack({ spotifyTrackId: "t1", title: "Original Title" })], null);
+		await repo.upsertAll(
+			"src-1",
+			[makeTrack({ spotifyTrackId: "t1", title: "Original Title" })],
+			null,
+		);
 
 		// Manually set Phase-3-owned columns
 		await db
@@ -109,7 +120,11 @@ describe("ScraperRepository.upsertAll", () => {
 			);
 
 		// Upsert same track with updated title
-		await repo.upsertAll("src-1", [makeTrack({ spotifyTrackId: "t1", title: "Updated Title" })], null);
+		await repo.upsertAll(
+			"src-1",
+			[makeTrack({ spotifyTrackId: "t1", title: "Updated Title" })],
+			null,
+		);
 
 		const [row] = await db.select().from(schema.tracks);
 		expect(row.title).toBe("Updated Title");
@@ -121,9 +136,17 @@ describe("ScraperRepository.upsertAll", () => {
 
 	it("Test 3: position is overwritten on upsert (D-15)", async () => {
 		await seedSource(db);
-		await repo.upsertAll("src-1", [makeTrack({ spotifyTrackId: "t1", position: 3 })], null);
+		await repo.upsertAll(
+			"src-1",
+			[makeTrack({ spotifyTrackId: "t1", position: 3 })],
+			null,
+		);
 
-		await repo.upsertAll("src-1", [makeTrack({ spotifyTrackId: "t1", position: 0 })], null);
+		await repo.upsertAll(
+			"src-1",
+			[makeTrack({ spotifyTrackId: "t1", position: 0 })],
+			null,
+		);
 
 		const [row] = await db.select().from(schema.tracks);
 		expect(row.position).toBe(0);
@@ -144,11 +167,17 @@ describe("ScraperRepository.upsertAll", () => {
 			updatedAt: pastDate,
 		});
 
-		await repo.upsertAll("src-1", [makeTrack({ spotifyTrackId: "t1", title: "New" })], null);
+		await repo.upsertAll(
+			"src-1",
+			[makeTrack({ spotifyTrackId: "t1", title: "New" })],
+			null,
+		);
 
 		const [row] = await db.select().from(schema.tracks);
 		// createdAt must remain the original past date (within 1s rounding)
-		expect(row.createdAt.getTime()).toBeLessThanOrEqual(pastDate.getTime() + 1000);
+		expect(row.createdAt.getTime()).toBeLessThanOrEqual(
+			pastDate.getTime() + 1000,
+		);
 		// updatedAt must be refreshed (greater than pastDate)
 		expect(row.updatedAt.getTime()).toBeGreaterThan(pastDate.getTime());
 	});
@@ -193,7 +222,11 @@ describe("ScraperRepository.upsertAll", () => {
 		// in the same call, and that without the transaction they could diverge.
 		// We test the happy-path transaction here; the failure branch is covered
 		// by Test 8 (setCoverArtUrl).
-		await repo.upsertAll("src-1", [track], "https://covers.example.com/img.jpg");
+		await repo.upsertAll(
+			"src-1",
+			[track],
+			"https://covers.example.com/img.jpg",
+		);
 
 		const [source] = await db
 			.select()
