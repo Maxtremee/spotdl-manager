@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Routing
+
+- **Spike findings for spotdl-manager** (implementation patterns, constraints, gotchas) → `Skill("spike-findings-spotdl-manager")`
+
 ## Project Overview
 
 A browser-based UI for managing playlists downloaded via spotdl, with scheduling and automatic refresh capabilities. Built with Solid.js, TanStack Start (SSR), SQLite via Drizzle ORM, and PandaCSS.
