@@ -12,7 +12,7 @@ This milestone swaps the download engine from the broken `spotdl` CLI to a Playw
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Schema reset & spotdl removal** - Rip out spotdl, introduce `tracks` table, clean-break DB wipe
+- [x] **Phase 1: Schema reset & spotdl removal** (2026-04-24) - Rip out spotdl, introduce `tracks` table, clean-break DB wipe
 - [ ] **Phase 2: Spotify session (Playwright login CLI)** - Persistent storage state written to `/data` via container-runnable CLI
 - [ ] **Phase 3: Playlist happy-path slice (end-to-end MP3)** - One playlist scrapes, matches, downloads, tags a single track successfully
 - [ ] **Phase 4: Album support & incremental rescrape** - Albums scrape identically, repeat syncs stop after 5 known-in-order tracks
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Schema reset & spotdl removal | 0/TBD | Not started | - |
+| 1. Schema reset & spotdl removal | 5/5 | Complete | 2026-04-24 |
 | 2. Spotify session (Playwright login CLI) | 0/TBD | Not started | - |
 | 3. Playlist happy-path slice (end-to-end MP3) | 0/TBD | Not started | - |
 | 4. Album support & incremental rescrape | 0/TBD | Not started | - |
