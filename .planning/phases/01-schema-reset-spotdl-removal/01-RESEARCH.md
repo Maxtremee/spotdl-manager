@@ -737,19 +737,19 @@ private async executePlaylistSync(source: SourceRow): Promise<void> {
 
 **If this table is non-empty:** A4 and A8 need explicit resolution during `/gsd-discuss-phase` or at planner stage. A1-A7 are low-risk and can be left to Claude's discretion.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **How to sequence `db:push` and the file delete?**
+1. **How to sequence `db:push` and the file delete?** **RESOLVED:** One-shot `pnpm reset:db` script (not a runtime plugin). Implemented by plan 01-05 Task 1 (`scripts/reset-db.mjs` + `package.json` script entry). Plan 01-05 Task 2 re-runs `pnpm db:push` against a wiped DB file as the [BLOCKING] verification step. Nitro plugin approach explicitly rejected and asserted-absent in plan 01-05 verification.
    - What we know: `pnpm db:push` runs before `vite dev` (dev flow); production `pnpm start` does not run push at all (container entrypoint would need to); Nitro plugin deletes file inside Vite/Nitro boot.
    - What's unclear: Cleanest way to guarantee "fresh file + fresh schema" in one step without a double-push or a manual command.
    - Recommendation: Add a one-shot npm script `pnpm reset:db` = `rimraf data/db.sqlite && pnpm db:push` (or shell equivalent), have the planner add a task "run `pnpm reset:db` at Phase 1 cutover" and **skip the runtime plugin entirely**. The plugin-based approach is elegant but has the ordering problem in A8. A one-shot script is dumber and works. This also aligns with D-05's "just do it" spirit — no ceremony.
 
-2. **Delete or rewrite `PlaylistScheduler.test.ts`?**
+2. **Delete or rewrite `PlaylistScheduler.test.ts`?** **RESOLVED:** Rewrite from scratch. Implemented by plan 01-04 Task 1 (test written first, TDD) + Task 2 (stub implementation to turn it green). New test mocks `getEventBus()` and asserts the two lifecycle emits + zero `InvocationRepository` calls.
    - What we know: Existing file has 468 lines, heavily mocks spotdl internals, asserts invocation row creation + update.
    - What's unclear: Whether to delete and rewrite vs patch in-place.
    - Recommendation: Rewrite from scratch. Keep test coverage for cron expression calculation (`intervalToCron`), scheduling/unscheduling, reload, shutdown, concurrency guard — but drop all spotdl mocks and instead mock `getEventBus()` to assert the two emits. Target: ~200 lines, significantly simpler.
 
-3. **Should `SPOTDL_COOKIES_FILE` be removed from `.env.example`?**
+3. **Should `SPOTDL_COOKIES_FILE` be removed from `.env.example`?** **RESOLVED:** Yes — removed from `.env.example`, `Dockerfile`, `Dockerfile.dev` by plan 01-03 Task 2 (acceptance criteria include `! grep -r "SPOTDL_COOKIES_FILE" .env.example Dockerfile Dockerfile.dev`).
    - What we know: `.env.example` exists (per Stack analysis), but not inspected here.
    - What's unclear: Whether other env vars reference it.
    - Recommendation: Planner task: `sed`-out any `SPOTDL_COOKIES_FILE` line from `.env.example`, `.env.sample`, `docker-compose.yml`, `docker-compose.prod.yml`, `Dockerfile`, `Dockerfile.dev`. Cheap to include; cheap if it finds nothing.
