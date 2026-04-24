@@ -57,3 +57,8 @@ docker-compose*.yml
 
 # Drizzle migrations already applied
 drizzle/
+
+# Phase 2 scraper — venv is built inside the image, not copied from host
+scraper/.venv/
+scraper/__pycache__/
+scraper/**/*.pyc

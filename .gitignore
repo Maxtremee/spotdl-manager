@@ -20,3 +20,8 @@ styled-system-studio
 .planning/spikes/**/.venv/
 .planning/spikes/**/__pycache__/
 .planning/spikes/**/*_response.json
+
+## Phase 2 scraper (Python venv built inside Docker image)
+scraper/.venv/
+scraper/__pycache__/
+scraper/**/*.pyc

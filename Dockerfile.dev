@@ -1,4 +1,4 @@
-# Development Dockerfile — Node runtime + ffmpeg (Phase 7 will add Chromium + yt-dlp)
+# Development Dockerfile — Node runtime + ffmpeg (Phase 2 adds Python + spotifyscraper; Phase 3 adds yt-dlp)
 FROM node:22-slim
 
 # Install system dependencies and build tools
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build dependencies for native modules (better-sqlite3)
     make \
     g++ \
+    python3 python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # Install pnpm globally
@@ -24,6 +25,12 @@ COPY patches ./patches
 # Copy all source files (needed for panda to resolve ~/theme imports)
 COPY panda.config.ts tsconfig.json ./
 COPY src ./src
+
+# Phase 2 pivot (2026-04-24): spotifyscraper replaces spotdl — no browser engine required.
+# Phase 2: Python scraper venv built inside the image at /app/scraper/.venv
+COPY scraper ./scraper
+RUN python3 -m venv /app/scraper/.venv \
+    && /app/scraper/.venv/bin/pip install --no-cache-dir -r /app/scraper/requirements.txt
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile

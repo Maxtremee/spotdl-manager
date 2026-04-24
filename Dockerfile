@@ -1,4 +1,4 @@
-# Production Dockerfile — Node runtime + ffmpeg + sqlite3 (Phase 7 will add Chromium + yt-dlp)
+# Production Dockerfile — Node runtime + ffmpeg + sqlite3 (Phase 2 adds Python + spotifyscraper; Phase 3 adds yt-dlp)
 # Multi-stage build for optimized image size
 
 # Stage 1: Dependencies and Build
@@ -37,6 +37,7 @@ FROM node:22-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     sqlite3 \
+    python3 python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # Enable pnpm
@@ -60,6 +61,16 @@ RUN mkdir -p /app/data/logs /app/data/sync /app/data/daily-mix \
 
 # Create directory for database with proper permissions
 RUN chown -R node:node /app
+
+# Phase 2 pivot (2026-04-24): spotifyscraper replaces spotdl — no browser engine required.
+# Phase 2: Python scraper — spotifyscraper venv baked into immutable layer.
+# chown node:node so the non-root runtime user cannot modify the interpreter
+# post-build (T-2-07 TOCTOU mitigation). Binary path fixed at
+# /app/scraper/.venv/bin/python and referenced by SpotifyScraperBridge.
+COPY --chown=node:node scraper ./scraper
+RUN python3 -m venv /app/scraper/.venv \
+    && /app/scraper/.venv/bin/pip install --no-cache-dir -r /app/scraper/requirements.txt \
+    && chown -R node:node /app/scraper
 
 # Switch to non-root user
 USER node
