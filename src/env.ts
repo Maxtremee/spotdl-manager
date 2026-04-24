@@ -4,6 +4,14 @@ import { z } from "zod";
 export const env = createEnv({
 	server: {
 		SERVER_URL: z.url().optional(),
+		/**
+		 * Phase 2: override the Python interpreter path for the spotifyscraper bridge.
+		 * Default is 'scraper/.venv/bin/python' (resolved from the app's cwd).
+		 * Docker-only dev (D-04) makes this mostly unnecessary, but keeping it as an
+		 * escape hatch for rare host-side invocations (e.g. running the integration
+		 * test with SCRAPER_INTEGRATION=1 on a workstation with a local venv).
+		 */
+		PYTHON_BIN: z.string().min(1).optional(),
 	},
 
 	/**
