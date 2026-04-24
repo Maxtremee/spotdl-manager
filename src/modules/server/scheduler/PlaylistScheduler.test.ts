@@ -14,7 +14,10 @@ const { mockCronInstances, mockDbSelect, mockEventBusEmit } = vi.hoisted(
 	() => ({
 		mockCronInstances: new Map<string, MockCronInstance>(),
 		mockDbSelect: vi.fn(),
-		mockEventBusEmit: vi.fn(() => Promise.resolve()),
+		// Typed as accepting the emit envelope so `.mock.calls[i][0]` is well-typed.
+		mockEventBusEmit: vi.fn((_event: { type: string; payload: any }) =>
+			Promise.resolve(),
+		),
 	}),
 );
 
@@ -343,7 +346,9 @@ describe("PlaylistScheduler (Phase 1 stub)", () => {
 			const source = createMockSource();
 			scheduler.schedulePlaylist(source);
 
-			const cb = mockCronInstances.get("0 6 * * *")?.callback;
+			const cronInstance = mockCronInstances.get("0 6 * * *");
+			expect(cronInstance).toBeDefined();
+			const cb = cronInstance!.callback;
 			const p1 = cb();
 			const p2 = cb();
 			await Promise.all([p1, p2]);
