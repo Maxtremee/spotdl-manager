@@ -48,7 +48,7 @@ export function BasicFieldsSection(props: BasicFieldsSectionProps) {
 							placeholder="https://open.spotify.com/playlist/..."
 						/>
 						<Field.HelperText>
-							Paste a link to a playlist, album, or track from Spotify
+							Paste a link to a playlist or album from Spotify
 						</Field.HelperText>
 						<Show when={field().state.meta.errors.length > 0}>
 							<Field.ErrorText>{field().state.meta.errors[0]}</Field.ErrorText>

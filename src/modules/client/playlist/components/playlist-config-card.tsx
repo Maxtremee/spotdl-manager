@@ -1,20 +1,14 @@
 import { createListCollection } from "@ark-ui/solid/select";
-import { PlayIcon } from "lucide-solid";
 import type { Accessor, JSX } from "solid-js";
 import { For, Show } from "solid-js";
 import { css } from "styled-system/css";
 import { hstack, vstack } from "styled-system/patterns";
-import { Button } from "~/components/ui/button";
 import * as Card from "~/components/ui/card";
 import * as Field from "~/components/ui/field";
 import { Link as UILink } from "~/components/ui/link";
 import * as Select from "~/components/ui/select";
 import { Text } from "~/components/ui/text";
-import {
-	formatOptions,
-	qualityOptions,
-	statusOptions,
-} from "~/modules/client/playlist/service/options";
+import { statusOptions } from "~/modules/client/playlist/service/options";
 
 interface PlaylistSchedule {
 	enabled: boolean;
@@ -28,15 +22,8 @@ interface PlaylistConfigCardProps {
 	outputDir: string;
 	schedule: PlaylistSchedule | null;
 	status: string;
-	format: string;
-	quality: string;
 	isUpdating: Accessor<boolean>;
-	isSyncing: Accessor<boolean>;
-	canSync: boolean;
 	onStatusChange: (status: string) => void;
-	onFormatChange: (format: string) => void;
-	onQualityChange: (quality: string) => void;
-	onRunSync: () => void;
 	deleteDialog: JSX.Element;
 }
 
@@ -46,18 +33,7 @@ export function PlaylistConfigCard(props: PlaylistConfigCardProps) {
 			<Card.Header>
 				<div class={hstack({ justify: "space-between", w: "full" })}>
 					<Card.Title>Playlist Configuration</Card.Title>
-					<div class={hstack({ gap: "2" })}>
-						<Button
-							variant="solid"
-							size="sm"
-							onClick={props.onRunSync}
-							disabled={props.isSyncing() || !props.canSync}
-						>
-							<PlayIcon class={css({ w: "4", h: "4", mr: "1" })} />
-							{props.isSyncing() ? "Starting..." : "Run Now"}
-						</Button>
-						{props.deleteDialog}
-					</div>
+					<div class={hstack({ gap: "2" })}>{props.deleteDialog}</div>
 				</div>
 			</Card.Header>
 			<Card.Body>
@@ -128,72 +104,6 @@ export function PlaylistConfigCard(props: PlaylistConfigCardProps) {
 								<Select.Positioner>
 									<Select.Content>
 										<For each={[...statusOptions]}>
-											{(item) => (
-												<Select.Item item={item}>
-													<Select.ItemText>{item.label}</Select.ItemText>
-												</Select.Item>
-											)}
-										</For>
-									</Select.Content>
-								</Select.Positioner>
-							</Select.Root>
-						</Field.Root>
-
-						<Field.Root>
-							<Field.Label>Format</Field.Label>
-							<Select.Root
-								collection={createListCollection({ items: [...formatOptions] })}
-								value={[props.format]}
-								onValueChange={(details) => {
-									if (details.value[0] !== props.format) {
-										props.onFormatChange(details.value[0]);
-									}
-								}}
-								disabled={props.isUpdating()}
-								positioning={{ sameWidth: true }}
-							>
-								<Select.Control>
-									<Select.Trigger>
-										<Select.ValueText placeholder="Select format" />
-									</Select.Trigger>
-								</Select.Control>
-								<Select.Positioner>
-									<Select.Content>
-										<For each={[...formatOptions]}>
-											{(item) => (
-												<Select.Item item={item}>
-													<Select.ItemText>{item.label}</Select.ItemText>
-												</Select.Item>
-											)}
-										</For>
-									</Select.Content>
-								</Select.Positioner>
-							</Select.Root>
-						</Field.Root>
-
-						<Field.Root>
-							<Field.Label>Quality</Field.Label>
-							<Select.Root
-								collection={createListCollection({
-									items: [...qualityOptions],
-								})}
-								value={[props.quality]}
-								onValueChange={(details) => {
-									if (details.value[0] !== props.quality) {
-										props.onQualityChange(details.value[0]);
-									}
-								}}
-								disabled={props.isUpdating()}
-								positioning={{ sameWidth: true }}
-							>
-								<Select.Control>
-									<Select.Trigger>
-										<Select.ValueText placeholder="Select quality" />
-									</Select.Trigger>
-								</Select.Control>
-								<Select.Positioner>
-									<Select.Content>
-										<For each={[...qualityOptions]}>
 											{(item) => (
 												<Select.Item item={item}>
 													<Select.ItemText>{item.label}</Select.ItemText>

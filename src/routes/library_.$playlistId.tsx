@@ -8,9 +8,6 @@ import { PlaylistHeader } from "~/modules/client/playlist/components/playlist-he
 import { SyncHistoryCard } from "~/modules/client/playlist/components/sync-history-card";
 import {
 	deletePlaylist,
-	triggerSync,
-	updateFormat,
-	updateQuality,
 	updateStatus,
 } from "~/modules/client/playlist/service/playlist-actions";
 import { getPlaylistDetailsServerFn } from "~/modules/server/playlist/functions";
@@ -39,7 +36,6 @@ function PlaylistDetails() {
 	const data = Route.useLoaderData();
 	const router = useRouter();
 	const [isUpdating, setIsUpdating] = createSignal(false);
-	const [isSyncing, setIsSyncing] = createSignal(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = createSignal(false);
 
 	const playlist = () => data().playlist;
@@ -52,49 +48,11 @@ function PlaylistDetails() {
 		});
 	};
 
-	const handleRunSync = async () => {
-		setIsSyncing(true);
-		await triggerSync(playlist().id!, {
-			onSuccess: () => router.invalidate(),
-		});
-		setIsSyncing(false);
-	};
-
 	const handleStatusChange = async (newStatus: string) => {
 		setIsUpdating(true);
 		await updateStatus(
 			playlist().id!,
 			newStatus as "active" | "paused" | "archived",
-			{
-				onSuccess: () => router.invalidate(),
-			},
-		);
-		setIsUpdating(false);
-	};
-
-	const handleFormatChange = async (newFormat: string) => {
-		setIsUpdating(true);
-		await updateFormat(
-			playlist().id!,
-			newFormat as "mp3" | "flac" | "ogg" | "m4a" | "opus" | "vorbis" | "wav",
-			{
-				onSuccess: () => router.invalidate(),
-			},
-		);
-		setIsUpdating(false);
-	};
-
-	const handleQualityChange = async (newQuality: string) => {
-		setIsUpdating(true);
-		await updateQuality(
-			playlist().id!,
-			newQuality as
-				| "worst"
-				| "low"
-				| "medium"
-				| "high"
-				| "very_high"
-				| "lossless",
 			{
 				onSuccess: () => router.invalidate(),
 			},
@@ -120,17 +78,10 @@ function PlaylistDetails() {
 			<PlaylistConfigCard
 				sourceUrl={playlist().source.url}
 				outputDir={playlist().outputDir}
-				schedule={playlist().schedule}
+				schedule={playlist().schedule ?? null}
 				status={playlist().status}
-				format={playlist().flags?.format || "mp3"}
-				quality={playlist().flags?.quality || "high"}
 				isUpdating={isUpdating}
-				isSyncing={isSyncing}
-				canSync={playlist().status === "active"}
 				onStatusChange={handleStatusChange}
-				onFormatChange={handleFormatChange}
-				onQualityChange={handleQualityChange}
-				onRunSync={handleRunSync}
 				deleteDialog={
 					<DeletePlaylistDialog
 						open={deleteDialogOpen}
