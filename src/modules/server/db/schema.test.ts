@@ -1,12 +1,7 @@
 import { getTableColumns, getTableName } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
-import {
-	globalSettings,
-	invocations,
-	sources,
-	tracks,
-} from "./schema";
+import { globalSettings, invocations, sources, tracks } from "./schema";
 
 describe("db/schema — phase 1 contract", () => {
 	describe("sources table (renamed from playlists)", () => {
@@ -24,7 +19,6 @@ describe("db/schema — phase 1 contract", () => {
 
 		it("source_type enum is ['playlist','album'] (no 'track')", () => {
 			const sourceType = getTableColumns(sources).sourceType;
-			// @ts-expect-error Drizzle runtime prop
 			expect(sourceType.enumValues).toEqual(["playlist", "album"]);
 		});
 
@@ -63,7 +57,6 @@ describe("db/schema — phase 1 contract", () => {
 
 		it("state enum + default match TRACK-02 + D-09", () => {
 			const state = getTableColumns(tracks).state;
-			// @ts-expect-error Drizzle runtime prop
 			expect(state.enumValues).toEqual([
 				"pending",
 				"matched",

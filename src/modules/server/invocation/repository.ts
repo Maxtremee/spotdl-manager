@@ -250,9 +250,9 @@ export class InvocationRepository {
 			return {} as Record<string, { id: string; name: string }>;
 		}
 		const rows = await this.db
-			.select({ id: schema.playlists.id, name: schema.playlists.name })
-			.from(schema.playlists)
-			.where(inArray(schema.playlists.id, playlistIds));
+			.select({ id: schema.sources.id, name: schema.sources.name })
+			.from(schema.sources)
+			.where(inArray(schema.sources.id, playlistIds));
 		return rows.reduce(
 			(acc, row) => {
 				acc[row.id] = { id: row.id, name: row.name };

@@ -1,12 +1,11 @@
-import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { getDb } from "./index";
 import {
 	invocations,
 	type NewInvocationRow,
-	type NewPlaylistRow,
-	playlists,
+	type NewSourceRow,
+	sources,
 } from "./schema";
 
 async function main() {
@@ -14,17 +13,13 @@ async function main() {
 
 	const now = new Date();
 
-	const seedPlaylists: NewPlaylistRow[] = [
+	const seedSources: NewSourceRow[] = [
 		{
 			id: "seed-playlist-daily",
 			name: "Daily Mix Downloader",
 			sourceType: "playlist",
 			sourceUrl: "https://open.spotify.com/playlist/1lJDx1lqWkjnh8D7VITEhC",
 			outputDir: path.join(process.cwd(), "downloads", "daily-mix"),
-			flagsOverwrite: false,
-			flagsRetries: 3,
-			flagsQuality: "high",
-			flagsFormat: "mp3",
 			scheduleEnabled: true,
 			scheduleType: "cron",
 			scheduleCron: "0 6 * * *",
@@ -40,10 +35,6 @@ async function main() {
 			sourceUrl:
 				"https://open.spotify.com/album/0m7RPdwNo1gte0nUSwh2yv?si=FikYvA9tR_uwPUB-qUc8vw",
 			outputDir: path.join(process.cwd(), "downloads", "albums"),
-			flagsOverwrite: true,
-			flagsRetries: 5,
-			flagsQuality: "very_high",
-			flagsFormat: "flac",
 			scheduleEnabled: true,
 			scheduleType: "interval",
 			scheduleCron: null,
@@ -52,35 +43,16 @@ async function main() {
 			createdAt: now,
 			updatedAt: now,
 		},
-		{
-			id: randomUUID(),
-			name: "Single Track Check",
-			sourceType: "track",
-			sourceUrl:
-				"https://open.spotify.com/track/3xhHrJujvMsuArqRj9QLWy?si=3911e5125095495f",
-			outputDir: path.join(process.cwd(), "downloads", "tracks"),
-			flagsOverwrite: false,
-			flagsRetries: 2,
-			flagsQuality: "medium",
-			flagsFormat: "mp3",
-			scheduleEnabled: false,
-			scheduleType: "interval",
-			scheduleCron: null,
-			scheduleMinutes: 720,
-			status: "paused",
-			createdAt: now,
-			updatedAt: now,
-		},
 	];
 
-	db.insert(playlists)
-		.values(seedPlaylists)
-		.onConflictDoNothing({ target: playlists.id })
+	db.insert(sources)
+		.values(seedSources)
+		.onConflictDoNothing({ target: sources.id })
 		.run();
 
-	const total = db.select().from(playlists).all().length;
+	const total = db.select().from(sources).all().length;
 	console.log(
-		`Seed complete. Attempted ${seedPlaylists.length} inserts. Total playlists in DB: ${total}.`,
+		`Seed complete. Attempted ${seedSources.length} inserts. Total sources in DB: ${total}.`,
 	);
 
 	// Create sample invocations with log files

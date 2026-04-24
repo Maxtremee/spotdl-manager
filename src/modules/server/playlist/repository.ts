@@ -38,13 +38,13 @@ export const PlaylistRepository = {
 
 		// Apply status filter
 		if (params.status) {
-			conditions.push(eq(schema.playlists.status, params.status));
+			conditions.push(eq(schema.sources.status, params.status));
 		}
 
 		// Apply search filter (search in name)
 		if (params.search) {
 			const searchPattern = `%${params.search}%`;
-			conditions.push(like(schema.playlists.name, searchPattern));
+			conditions.push(like(schema.sources.name, searchPattern));
 		}
 
 		// Build WHERE clause from conditions
@@ -53,14 +53,14 @@ export const PlaylistRepository = {
 		// Get total count for pagination
 		const countResult = await db
 			.select({ count: count() })
-			.from(schema.playlists)
+			.from(schema.sources)
 			.where(whereClause);
 		const totalCount = countResult[0].count;
 
 		// Get paginated results
 		const rows = await db
 			.select()
-			.from(schema.playlists)
+			.from(schema.sources)
 			.where(whereClause)
 			.limit(limit)
 			.offset(offset);
@@ -83,8 +83,8 @@ export const PlaylistRepository = {
 		const db = getDb();
 		const [row] = await db
 			.select()
-			.from(schema.playlists)
-			.where(eq(schema.playlists.id, id));
+			.from(schema.sources)
+			.where(eq(schema.sources.id, id));
 
 		return row ? rowToPlaylist(row) : null;
 	},
@@ -94,7 +94,7 @@ export const PlaylistRepository = {
 	 */
 	async getTotalCount() {
 		const db = getDb();
-		const result = await db.select({ count: count() }).from(schema.playlists);
+		const result = await db.select({ count: count() }).from(schema.sources);
 
 		return result[0].count;
 	},
@@ -106,11 +106,11 @@ export const PlaylistRepository = {
 		const db = getDb();
 		const result = await db
 			.select({
-				status: schema.playlists.status,
+				status: schema.sources.status,
 				count: count(),
 			})
-			.from(schema.playlists)
-			.groupBy(schema.playlists.status);
+			.from(schema.sources)
+			.groupBy(schema.sources.status);
 
 		return result;
 	},
@@ -122,13 +122,13 @@ export const PlaylistRepository = {
 		const db = getDb();
 		const row = playlistToRow(playlist);
 
-		await db.insert(schema.playlists).values(row);
+		await db.insert(schema.sources).values(row);
 
 		// Query back the inserted row to ensure correct types
 		const [insertedRow] = await db
 			.select()
-			.from(schema.playlists)
-			.where(eq(schema.playlists.id, row.id));
+			.from(schema.sources)
+			.where(eq(schema.sources.id, row.id));
 
 		return rowToPlaylist(insertedRow);
 	},
@@ -148,15 +148,15 @@ export const PlaylistRepository = {
 		const row = playlistToRow(updated);
 
 		await db
-			.update(schema.playlists)
+			.update(schema.sources)
 			.set(row)
-			.where(eq(schema.playlists.id, id));
+			.where(eq(schema.sources.id, id));
 
 		// Query back the updated row to ensure correct types
 		const [updatedRow] = await db
 			.select()
-			.from(schema.playlists)
-			.where(eq(schema.playlists.id, id));
+			.from(schema.sources)
+			.where(eq(schema.sources.id, id));
 
 		return rowToPlaylist(updatedRow);
 	},
@@ -167,7 +167,7 @@ export const PlaylistRepository = {
 	async deletePlaylist(id: string) {
 		const db = getDb();
 
-		await db.delete(schema.playlists).where(eq(schema.playlists.id, id));
+		await db.delete(schema.sources).where(eq(schema.sources.id, id));
 
 		return true;
 	},

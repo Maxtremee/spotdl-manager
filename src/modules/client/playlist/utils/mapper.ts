@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { NewPlaylistRow, PlaylistRow } from "~/modules/server/db/schema";
+import type { NewSourceRow, SourceRow } from "~/modules/server/db/schema";
 import { type Playlist, PlaylistSchema } from "../schema/playlist";
 
 /**
- * Convert Drizzle database row to Zod Playlist type
+ * Convert Drizzle database row (sources table) to Zod Playlist type.
+ * Flag fields were removed in Phase 1 (spotdl-era concerns); the Zod schema
+ * still accepts an optional `flags` but we no longer populate it.
  */
-export function rowToPlaylist(row: PlaylistRow): Playlist {
+export function rowToPlaylist(row: SourceRow): Playlist {
 	return PlaylistSchema.parse({
 		id: row.id,
 		name: row.name,
@@ -14,12 +16,6 @@ export function rowToPlaylist(row: PlaylistRow): Playlist {
 			url: row.sourceUrl,
 		},
 		outputDir: row.outputDir,
-		flags: {
-			overwrite: row.flagsOverwrite,
-			retries: row.flagsRetries,
-			quality: row.flagsQuality,
-			format: row.flagsFormat,
-		},
 		schedule: {
 			enabled: row.scheduleEnabled,
 			schedule:
@@ -40,31 +36,31 @@ export function rowToPlaylist(row: PlaylistRow): Playlist {
 }
 
 /**
- * Convert Zod Playlist type to Drizzle database row (insert)
+ * Convert Zod Playlist type to Drizzle database row (insert shape for `sources`).
  */
-export function playlistToRow(playlist: Playlist): NewPlaylistRow {
+export function playlistToRow(playlist: Playlist): NewSourceRow {
 	const id = playlist.id || randomUUID();
-	const flags = playlist.flags || {
-		overwrite: false,
-		retries: 3,
-		quality: "high" as const,
-		format: "mp3" as const,
-	};
 	const schedule = playlist.schedule || {
 		enabled: false,
 		schedule: { type: "interval" as const, minutes: 1440 },
 	};
 
+	// Phase 1: "track" source type was dropped (D-11); v1 only supports
+	// playlists + albums. Reject at mapper boundary — plan 01-02 trims the
+	// Zod schema so this guard becomes unreachable.
+	if (playlist.source.type === "track") {
+		throw new Error(
+			"Source type 'track' is no longer supported; use 'playlist' or 'album'.",
+		);
+	}
+	const sourceType: NewSourceRow["sourceType"] = playlist.source.type;
+
 	return {
 		id,
 		name: playlist.name,
-		sourceType: playlist.source.type,
+		sourceType,
 		sourceUrl: playlist.source.url,
 		outputDir: playlist.outputDir,
-		flagsOverwrite: flags.overwrite,
-		flagsRetries: flags.retries,
-		flagsQuality: flags.quality,
-		flagsFormat: flags.format,
 		scheduleEnabled: schedule.enabled,
 		scheduleType: schedule.schedule.type,
 		scheduleCron:
