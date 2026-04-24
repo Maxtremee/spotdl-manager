@@ -47,7 +47,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. First-ever scrape of a source reads all tracks top-to-bottom and records them in order (no early-stop on empty state)
   5. Library limitations are handled explicitly: empty `id` → derived from `uri`; `spotifyscraper` exceptions surface as typed errors the sync pipeline can catch
   6. **Constraint accepted**: playlists >100 tracks are truncated by the library (Spotify `/embed/playlist/` cap). Milestone scope = playlists ≤100 tracks + albums. Revisit only if requirements change.
-**Plans**: TBD
+**Plans**: 6 plans
+  - [ ] 02-01-PLAN.md — Python scraper bridge (scraper/scraper.py) + Docker image python3/venv layers (prod + dev)
+  - [ ] 02-02-PLAN.md — Event schema extension (truncationSuspected, trackCount, failureReason enum) + URL-validator test matrix (T-2-04 SSRF guard) + PYTHON_BIN env var
+  - [ ] 02-03-PLAN.md — SpotifyScraperBridge (Node child_process.spawn wrapper) + PythonEnvelopeSchema + mocked-spawn unit tests
+  - [ ] 02-04-PLAN.md — ScraperRepository (composite-key upsert with column preservation) + SyncRunner (shared entry point; URL guard, truncation flag, python_crash reclassification, terminal event)
+  - [ ] 02-05-PLAN.md — Scheduler body replacement (SyncRunner delegation + shared runningPlaylists guard) + Webhook formatter extension + Sync-now button (new PlaylistConfigCard.syncAction slot)
+  - [ ] 02-06-PLAN.md — Gated integration test (SCRAPER_INTEGRATION=1 real Python spawn) + manual end-to-end smoke checkpoint
 
 ### Phase 3: Match + download slice (end-to-end MP3)
 **Goal**: Pending rows produced by Phase 2 are resolved on YouTube under the strict duration gate, downloaded via yt-dlp, tagged, and land on disk at `data/music/<slug>/`. This is the first moment the app does its job end-to-end.
@@ -105,7 +111,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Schema reset & spotdl removal | 5/5 | Complete | 2026-04-24 |
-| 2. Spotify metadata via spotifyscraper | 0/TBD | Not started | - |
+| 2. Spotify metadata via spotifyscraper | 0/6 | Not started | - |
 | 3. Match + download slice (end-to-end MP3) | 0/TBD | Not started | - |
 | 4. Album support & incremental rescrape | 0/TBD | Not started | - |
 | 5. Per-track UI & retry model | 0/TBD | Not started | - |
@@ -114,3 +120,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 ---
 *Roadmap created: 2026-04-23*
 *Restructured 2026-04-24: pivot from Playwright session to spotifyscraper (per spikes 001/002). Removed old Phase 2 (Spotify session) and old Phase 6 (session-expiry surfaces). Renumbered old Phase 7 → new Phase 6.*
+*Phase 2 planned: 2026-04-24 — 6 plans across 5 waves (01 Docker+Python | 02 schemas, parallel with 01 | 03 bridge | 04 runner+repo | 05 scheduler+UI+webhook | 06 integration test + manual smoke)*
