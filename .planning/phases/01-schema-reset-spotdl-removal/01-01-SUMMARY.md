@@ -250,9 +250,24 @@ $ pnpm db:push
 
 None. All new exports (`sources`, `tracks`, `SourceRow`, `NewSourceRow`, `TrackRow`, `NewTrackRow`) are real, typed, and consumed by downstream call sites or the schema test.
 
-## Self-Check
+## Self-Check: PASSED
 
-(Appended after verification below.)
+Verified on 2026-04-24:
+
+- File `src/modules/server/db/schema.test.ts` — EXISTS
+- File `.planning/phases/01-schema-reset-spotdl-removal/deferred-items.md` — EXISTS
+- File `drizzle/0000_tranquil_squadron_sinister.sql` — EXISTS
+- File `data/db.sqlite` — EXISTS (runtime-only, gitignored)
+- File `.planning/phases/01-schema-reset-spotdl-removal/01-01-SUMMARY.md` — EXISTS
+- Commit `fec2331` (Task 1, test) — EXISTS
+- Commit `25adc07` (Task 2, feat) — EXISTS
+- Commit `561de57` (Task 3, feat) — EXISTS
+- Commit `c25272e` (metadata, docs) — EXISTS
+- `grep -rn "schema\.playlists" src/` — 0 matches
+- `grep -rn "PlaylistRow" src/modules/server/` — 0 matches
+- `pnpm exec vitest run src/modules/server/db/schema.test.ts` — 10/10 passing
+- `pnpm db:push` — idempotent ("No changes detected")
+- 4 tables in `data/db.sqlite`: sources, tracks, invocations, global_settings
 
 ---
 *Phase: 01-schema-reset-spotdl-removal*
