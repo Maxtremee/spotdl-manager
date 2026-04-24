@@ -10,13 +10,19 @@
  * against the old DB and the app then boots against a fresh empty file.
  * A single Node script runs both steps in the correct order.
  */
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 
 const repoRoot = process.cwd();
-const dbPath = path.resolve(repoRoot, "data", "db.sqlite");
+const dataDir = path.resolve(repoRoot, "data");
+const dbPath = path.resolve(dataDir, "db.sqlite");
+
+// data/ is gitignored — drizzle-kit push fails with
+// "Cannot open database because the directory does not exist" on a
+// fresh clone/worktree. Idempotent: mkdir -p equivalent.
+mkdirSync(dataDir, { recursive: true });
 
 if (existsSync(dbPath)) {
 	unlinkSync(dbPath);
