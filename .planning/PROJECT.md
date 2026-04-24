@@ -33,7 +33,7 @@ Scheduled, unattended downloads of Spotify playlists and albums as properly tagg
 - [ ] Detect expired/invalid session; mark invocation failed; emit a `playlist.sync.failed` event with reason `session_expired`
 
 **Track state model**
-- [ ] New `tracks` table keyed by `(playlist_id, spotify_track_id)` with: title, artist, duration_ms, match state, yt_video_id, download_path, failure_reason, timestamps
+- [x] New `tracks` table keyed by `(source_id, spotify_track_id)` with: title, artist, duration_ms, match state, yt_video_id, download_path, failure_reason, timestamps — validated in Phase 1
 - [ ] Per-track visibility in the UI (matched / downloaded / skipped-low-confidence / failed)
 
 **YouTube resolution + download (yt-dlp)**
@@ -57,8 +57,8 @@ Scheduled, unattended downloads of Spotify playlists and albums as properly tagg
 - [ ] Login CLI (`pnpm login:spotify` or equivalent) is runnable via `docker exec` and writes storage state to the mounted `/data` volume
 
 **Rip out spotdl**
-- [ ] Remove `SpotdlInvocator`, `SpotdlRepository`, spotdl-specific schema columns, `SPOTDL_COOKIES_FILE`, and related UI
-- [ ] Clean-break DB reset on upgrade (no migration code) — users recreate playlists
+- [x] Remove `SpotdlInvocator`, `SpotdlRepository`, spotdl-specific schema columns, `SPOTDL_COOKIES_FILE`, and related UI — validated in Phase 1
+- [x] Clean-break DB reset via `pnpm reset:db` (no migration code, no UI banner per D-07) — validated in Phase 1
 
 ### Out of Scope
 
@@ -102,8 +102,10 @@ Scheduled, unattended downloads of Spotify playlists and albums as properly tagg
 | Duration tolerance is the sole confidence gate; skip on mismatch | Prefer "no wrong file" over "always something"; user-visible skip state lets them intervene | — Pending |
 | Incremental rescrape: stop after 5 consecutive known-in-order tracks | Cuts scrape cost on large playlists; relies on "new tracks appear at top" assumption; removals are intentionally ignored | — Pending |
 | New per-track table | Enables per-track state/retry/UI; aggregate-only model can't represent skipped-vs-failed-vs-downloaded | — Pending |
-| Rip out spotdl entirely (not fallback) | Broken engine; side-by-side doubles maintenance for zero user benefit | — Pending |
-| Clean-break DB wipe on upgrade | Personal tool; migration code cost > recreating a handful of playlists | — Pending |
+| Rip out spotdl entirely (not fallback) | Broken engine; side-by-side doubles maintenance for zero user benefit | ✓ Validated (Phase 1) |
+| Clean-break DB wipe on upgrade | Personal tool; migration code cost > recreating a handful of playlists | ✓ Validated (Phase 1) — delivered via `pnpm reset:db` script; UI banner dropped per D-07 |
+| New `tracks` table (per-track state) | Aggregate-only model can't represent skipped-vs-failed-vs-downloaded | ✓ Validated (Phase 1) — schema in place; per-track UI still pending (Phase 5) |
+| Scheduler rewritten as event-emitting no-op stub | Keeps scheduler wiring + event-bus contract alive while download engine is swapped; Phase 2+ fills in the body | ✓ Validated (Phase 1) |
 | MP3 + ID3 tags | Matches prior spotdl output; keeps existing library readable in other players | — Pending |
 | Concurrency default 3 (range 2–4), configurable | Balances speed vs YouTube rate-limiting risk; user can tune per environment | — Pending |
 | `data/music/<playlist>/` layout | Simple, matches today's shape; albums reuse the same pattern | — Pending |
@@ -127,4 +129,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 after initialization*
+*Last updated: 2026-04-24 after Phase 1 completion*

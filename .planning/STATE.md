@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 1 plans merged; awaiting verification
-last_updated: "2026-04-24T11:15:00.000Z"
-last_activity: 2026-04-24 -- Phase 1 all waves merged, pipeline green
+status: ready
+stopped_at: Phase 1 complete; Phase 2 next
+last_updated: "2026-04-24T11:30:00.000Z"
+last_activity: 2026-04-24 -- Phase 1 verified (5/5 must-haves passed)
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
   completed_plans: 5
   percent: 14
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-23)
 
 **Core value:** Scheduled, unattended downloads of Spotify playlists and albums as properly tagged MP3s — resilient to Spotify locking down its public API.
-**Current focus:** Phase 1 — Schema reset & spotdl removal
+**Current focus:** Phase 2 — Spotify session (Playwright login CLI)
 
 ## Current Position
 
-Phase: 1 of 7 (Schema reset & spotdl removal)
-Plan: 5 of 5 in current phase
-Status: All plans merged, awaiting goal verification
-Last activity: 2026-04-24 -- Phase 1 all waves merged, pipeline green
-Next action: phase verification + transition
+Phase: 2 of 7 (Spotify session — Playwright login CLI)
+Plan: 0 of TBD in current phase
+Status: Phase 1 complete; ready to discuss/plan Phase 2
+Last activity: 2026-04-24 -- Phase 1 verified (5/5 must-haves passed)
+Next action: `/gsd-discuss-phase 2`
 
 Progress: [░░░░░░░░░░] 0%
 
