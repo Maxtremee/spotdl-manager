@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlaylistRow } from "../db/schema";
+import type { SourceRow } from "../db/schema";
 
 type MockCronInstance = {
 	stop: ReturnType<typeof vi.fn>;
@@ -108,17 +108,14 @@ import { Cron } from "croner";
 import { getScheduler, PlaylistScheduler } from "./PlaylistScheduler";
 
 // Helper to create mock playlist
-function createMockPlaylist(overrides: Partial<PlaylistRow> = {}): PlaylistRow {
+function createMockPlaylist(overrides: Partial<SourceRow> = {}): SourceRow {
 	return {
 		id: "playlist-1",
 		name: "Test Playlist",
 		sourceType: "playlist",
 		sourceUrl: "https://open.spotify.com/playlist/123",
 		outputDir: "/music/downloads",
-		flagsOverwrite: false,
-		flagsRetries: 3,
-		flagsQuality: "high",
-		flagsFormat: "mp3",
+		coverArtUrl: null,
 		scheduleEnabled: true,
 		scheduleType: "cron",
 		scheduleCron: "0 6 * * *",

@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import type { AppLogger } from "../../../logger";
 import { Logger } from "../../../logger";
 import { getDb, schema } from "../db";
-import type { PlaylistRow } from "../db/schema";
+import type { SourceRow } from "../db/schema";
 import { getEventBus } from "../events";
 import { InvocationRepository } from "../invocation/repository";
 import { SpotdlRepository } from "../spotdl/repository";
@@ -42,15 +42,15 @@ export class PlaylistScheduler {
 	/**
 	 * Fetch all playlists with scheduling enabled and active status
 	 */
-	private async getScheduledPlaylists(): Promise<PlaylistRow[]> {
+	private async getScheduledPlaylists(): Promise<SourceRow[]> {
 		const db = getDb();
 		return db
 			.select()
-			.from(schema.playlists)
+			.from(schema.sources)
 			.where(
 				and(
-					eq(schema.playlists.scheduleEnabled, true),
-					eq(schema.playlists.status, "active"),
+					eq(schema.sources.scheduleEnabled, true),
+					eq(schema.sources.status, "active"),
 				),
 			);
 	}
@@ -81,7 +81,7 @@ export class PlaylistScheduler {
 	/**
 	 * Execute a playlist sync and record the invocation
 	 */
-	private async executePlaylistSync(playlist: PlaylistRow): Promise<void> {
+	private async executePlaylistSync(playlist: SourceRow): Promise<void> {
 		// Prevent concurrent runs of the same playlist
 		if (this.runningPlaylists.has(playlist.id)) {
 			this.logger.warn(
@@ -127,13 +127,16 @@ export class PlaylistScheduler {
 				logPath,
 			});
 
+			// NOTE: flag columns were removed from schema in Phase 1 — hardcoded
+			// defaults below keep this call site compiling; Plan 01-04 rewrites
+			// executePlaylistSync into an event-emitting no-op.
 			const result = await this.invocator.run({
 				playlistId: playlist.id,
 				sourceUrl: playlist.sourceUrl,
 				outputDir: playlist.outputDir,
 				flags: {
-					format: playlist.flagsFormat as "mp3" | "m4a" | "flac" | "wav",
-					overwrite: playlist.flagsOverwrite,
+					format: "mp3",
+					overwrite: false,
 				},
 			});
 
@@ -235,7 +238,7 @@ export class PlaylistScheduler {
 	/**
 	 * Schedule a single playlist
 	 */
-	schedulePlaylist(playlist: PlaylistRow): void {
+	schedulePlaylist(playlist: SourceRow): void {
 		// Remove existing task if any
 		this.unschedulePlaylist(playlist.id);
 
@@ -373,7 +376,7 @@ export class PlaylistScheduler {
 	 * Manually trigger a playlist sync
 	 * Returns the invocation ID if successful, or null if playlist is already running
 	 */
-	async triggerManualSync(playlist: PlaylistRow): Promise<string | null> {
+	async triggerManualSync(playlist: SourceRow): Promise<string | null> {
 		if (this.runningPlaylists.has(playlist.id)) {
 			this.logger.warn(
 				{ playlistId: playlist.id, playlistName: playlist.name },

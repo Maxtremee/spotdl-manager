@@ -1,33 +1,28 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+	index,
+	integer,
+	sqliteTable,
+	text,
+	unique,
+} from "drizzle-orm/sqlite-core";
 
 /**
- * Playlists table schema using Drizzle ORM
- * Stores playlist configuration and metadata
+ * Sources table schema (renamed from `playlists`).
+ * Stores playlist/album source configuration and metadata.
+ * Flag columns (flags_overwrite/retries/quality/format) were removed in Phase 1
+ * — they were spotdl-engine concerns with no meaning in the Playwright+yt-dlp pipeline.
  */
-export const playlists = sqliteTable("playlists", {
+export const sources = sqliteTable("sources", {
 	id: text("id").primaryKey().notNull(),
 	name: text("name").notNull(),
 	sourceType: text("source_type", {
-		enum: ["playlist", "album", "track"],
+		enum: ["playlist", "album"],
 	}).notNull(),
 	sourceUrl: text("source_url").notNull(),
 	outputDir: text("output_dir").notNull(),
-	// Flags JSON (stored as text in SQLite)
-	flagsOverwrite: integer("flags_overwrite", { mode: "boolean" })
-		.default(false)
-		.notNull(),
-	flagsRetries: integer("flags_retries").default(3).notNull(),
-	flagsQuality: text("flags_quality", {
-		enum: ["worst", "low", "medium", "high", "very_high", "lossless"],
-	})
-		.default("high")
-		.notNull(),
-	flagsFormat: text("flags_format", {
-		enum: ["mp3", "flac", "ogg", "m4a", "opus", "vorbis", "wav"],
-	})
-		.default("mp3")
-		.notNull(),
+	// Nullable; populated in Phase 3 (SCRAPE-07) and consumed by ID3 cover art embed.
+	coverArtUrl: text("cover_art_url"),
 	// Schedule
 	scheduleEnabled: integer("schedule_enabled", { mode: "boolean" })
 		.default(false)
@@ -54,18 +49,68 @@ export const playlists = sqliteTable("playlists", {
 		.default(sql`(unixepoch())`),
 });
 
-export type PlaylistRow = typeof playlists.$inferSelect;
-export type NewPlaylistRow = typeof playlists.$inferInsert;
+export type SourceRow = typeof sources.$inferSelect;
+export type NewSourceRow = typeof sources.$inferInsert;
+
+/**
+ * Tracks table schema (Phase 1 — TRACK-01 + TRACK-02).
+ * Per-track state model for the new Playwright + yt-dlp pipeline.
+ * Phase 1 defines the contract; Phase 3+ writes rows.
+ */
+export const tracks = sqliteTable(
+	"tracks",
+	{
+		id: text("id").primaryKey().notNull(),
+		sourceId: text("source_id")
+			.notNull()
+			.references(() => sources.id, { onDelete: "cascade" }),
+		spotifyTrackId: text("spotify_track_id").notNull(),
+		title: text("title").notNull(),
+		artist: text("artist").notNull(),
+		durationMs: integer("duration_ms").notNull(),
+		state: text("state", {
+			enum: [
+				"pending",
+				"matched",
+				"downloaded",
+				"skipped_low_confidence",
+				"failed",
+			],
+		})
+			.default("pending")
+			.notNull(),
+		ytVideoId: text("yt_video_id"),
+		downloadPath: text("download_path"),
+		failureReason: text("failure_reason"),
+		position: integer("position").notNull(),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.default(sql`(unixepoch())`),
+	},
+	(t) => [
+		unique("tracks_source_spotify_unique").on(t.sourceId, t.spotifyTrackId),
+		index("tracks_source_id_idx").on(t.sourceId),
+		index("tracks_state_idx").on(t.state),
+	],
+);
+
+export type TrackRow = typeof tracks.$inferSelect;
+export type NewTrackRow = typeof tracks.$inferInsert;
 
 /**
  * Invocations table schema
- * Tracks each spotdl execution for a playlist
+ * Tracks each sync execution for a source.
+ * Note: the FK column is still called `playlist_id` / `playlistId` —
+ * Phase 3 will rework the invocations table semantics.
  */
 export const invocations = sqliteTable("invocations", {
 	id: text("id").primaryKey().notNull(),
 	playlistId: text("playlist_id")
 		.notNull()
-		.references(() => playlists.id, { onDelete: "cascade" }),
+		.references(() => sources.id, { onDelete: "cascade" }),
 	startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
 	finishedAt: integer("finished_at", { mode: "timestamp" }),
 	exitCode: integer("exit_code"),
