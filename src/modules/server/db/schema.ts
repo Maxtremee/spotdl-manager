@@ -82,6 +82,8 @@ export const tracks = sqliteTable(
 		ytVideoId: text("yt_video_id"),
 		downloadPath: text("download_path"),
 		failureReason: text("failure_reason"),
+		// Phase 3 D-13: nullable; populated by Phase 4 album sources, stays null for playlist tracks.
+		album: text("album"),
 		position: integer("position").notNull(),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
@@ -104,7 +106,7 @@ export type NewTrackRow = typeof tracks.$inferInsert;
  * Invocations table schema
  * Tracks each sync execution for a source.
  * Note: the FK column is still called `playlist_id` / `playlistId` —
- * Phase 3 will rework the invocations table semantics.
+ * Phase 3 D-05: `kind` column added — defaults to 'scrape' so existing rows stay correctly classified.
  */
 export const invocations = sqliteTable("invocations", {
 	id: text("id").primaryKey().notNull(),
@@ -122,6 +124,10 @@ export const invocations = sqliteTable("invocations", {
 	logPath: text("log_path"),
 	syncFilePath: text("sync_file_path"),
 	summary: text("summary"),
+	// Phase 3 D-05: discriminator so consumers can tell scrape rows apart from download rows.
+	kind: text("kind", { enum: ["scrape", "download"] })
+		.default("scrape")
+		.notNull(),
 });
 
 export type InvocationRow = typeof invocations.$inferSelect;
