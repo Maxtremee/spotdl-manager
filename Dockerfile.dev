@@ -32,6 +32,9 @@ COPY scraper ./scraper
 RUN python3 -m venv /app/scraper/.venv \
     && /app/scraper/.venv/bin/pip install --no-cache-dir -r /app/scraper/requirements.txt
 
+# Phase 3 D-10: pin yt-dlp binary path for the Node runtime.
+ENV YT_DLP_BIN=/app/scraper/.venv/bin/yt-dlp
+
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 

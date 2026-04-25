@@ -17,17 +17,19 @@ import { ScraperRepository } from "./repository";
 
 function createTestDb() {
 	const sqlite = new Database(":memory:");
-	// Find the newest migration SQL file in drizzle/
+	// Apply ALL migrations in order (W-5: delta migrations added by Phase 3+
+	// require all prior migrations to run first).
 	const migrationDir = path.resolve("drizzle");
-	const latestMigration = fs
+	const migrations = fs
 		.readdirSync(migrationDir)
 		.filter((f) => f.endsWith(".sql"))
-		.sort()
-		.pop()!;
-	const migrationSql = fs
-		.readFileSync(path.join(migrationDir, latestMigration), "utf8")
-		.replace(/--> statement-breakpoint/g, "");
-	sqlite.exec(migrationSql);
+		.sort();
+	for (const migration of migrations) {
+		const migrationSql = fs
+			.readFileSync(path.join(migrationDir, migration), "utf8")
+			.replace(/--> statement-breakpoint/g, "");
+		sqlite.exec(migrationSql);
+	}
 	return drizzle(sqlite, { schema });
 }
 

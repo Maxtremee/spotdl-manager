@@ -12,6 +12,12 @@ export const env = createEnv({
 		 * test with SCRAPER_INTEGRATION=1 on a workstation with a local venv).
 		 */
 		PYTHON_BIN: z.string().min(1).optional(),
+		/**
+		 * Phase 3 D-10: override the yt-dlp binary path. Default is "yt-dlp" (resolved via PATH).
+		 * Docker images set this to /app/scraper/.venv/bin/yt-dlp because yt-dlp installs into
+		 * the existing spotifyscraper venv (see scraper/requirements.txt).
+		 */
+		YT_DLP_BIN: z.string().min(1).optional(),
 	},
 
 	/**

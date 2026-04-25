@@ -34,7 +34,7 @@ describe("db/schema — phase 1 contract", () => {
 			expect(getTableName(tracks)).toBe("tracks");
 		});
 
-		it("exposes the full TRACK-02 column set", () => {
+		it("exposes the full TRACK-02 column set (+ Phase 3 D-13 album column)", () => {
 			const cols = Object.keys(getTableColumns(tracks)).sort();
 			expect(cols).toEqual(
 				[
@@ -48,6 +48,7 @@ describe("db/schema — phase 1 contract", () => {
 					"ytVideoId",
 					"downloadPath",
 					"failureReason",
+					"album",
 					"position",
 					"createdAt",
 					"updatedAt",
