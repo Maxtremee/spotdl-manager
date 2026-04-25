@@ -1052,32 +1052,34 @@ pluginLogger.info("Download handler registered");
 
 **Calibration note:** A1, A2, A3, A4, A5, A7 are real assumptions worth pinging the user on. A6 and A8 were `[ASSUMED]` in the heat of writing but verified by code-read; promoted to facts.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All five questions resolved during plan-checker iteration 1 (2026-04-25). Resolutions are reflected in the plan files; recorded here for audit.
 
 1. **Does `outputDir` on `sources` still mean anything in v1, or is it shadowed by `data/music/<source-slug>/`?**
    - What we know: REQUIREMENTS.md DOWNLOAD-03 + CONTEXT D-15 specify `data/music/<source-slug>/...`. The existing `outputDir` field on `sources` is freeform user input (e.g., `process.cwd()/downloads/daily-mix` from seed.ts). The field is part of `PlaylistSyncStartedEvent.payload.outputDir` (events/schema.ts:34), but no Phase 3 code consumes it.
    - What's unclear: is `outputDir` deprecated for v1, kept for future LAY2-01 (user-configurable templates), or supposed to be the source slug?
-   - Recommendation: **`outputDir` is kept as a UI/data field but NOT used by Phase 3's filesystem layout.** Phase 3 derives `data/music/<sourceSlug>` independently. Field stays for forward-compat with LAY2-01 but the file write path ignores it. Confirm with user before locking the plan.
+   - **RESOLVED:** `outputDir` is kept as a UI/data field but NOT used by Phase 3's filesystem layout. Phase 3 derives `data/music/<sourceSlug>` independently via `MUSIC_ROOT="data/music"` constant in plan 03-04. Field stays for forward-compat with LAY2-01 but the file write path ignores it.
 
 2. **Should the new download-trigger handler live in `src/modules/server/events/handlers.ts` or `src/modules/server/downloader/handler.ts`?**
    - What we know: CONTEXT explicitly says either is OK. handlers.ts is generic-utility-handlers (logging, metrics, scheduler reload, log cleanup); the Discord webhook handler lives in its own feature module (`src/modules/server/webhooks/handler.ts`).
    - What's unclear: just convention.
-   - Recommendation: **Put the handler in `src/modules/server/downloader/handler.ts`** — mirrors the Discord webhook pattern. Keeps Phase 3 code co-located. Easy to find.
+   - **RESOLVED:** Handler lives at `src/modules/server/downloader/handler.ts` — mirrors the Discord webhook pattern. Keeps Phase 3 code co-located. Locked by plan 03-04 Task 4.
 
 3. **Should Phase 3 extend the Discord webhook formatter to surface download-summary counts, or defer to Phase 5?**
    - What we know: CONTEXT lists this as Claude's discretion in the deferred section. The current webhook handler reads `playlist.sync.completed` events — but that event is emitted by the SCRAPE only (right when scrape finishes). The download finalization writes a separate `invocations` row but does NOT emit a new event in the current design.
    - What's unclear: whether to emit a new event type (e.g. `playlist.download.completed`) or to skip webhook integration in v1.
-   - Recommendation: **Emit a new event type `playlist.download.completed` with the download counters payload** (see §Don't Hand-Roll for shape). The existing webhook handler can be extended in Phase 5 to render it; for Phase 3, just emit it (so the bus has the data). This keeps Phase 5 unblocked and the v1 webhook surface unchanged. **Confirm with user.**
+   - **RESOLVED:** Emit a new event type `playlist.download.completed` with the download counters payload (locked by plan 03-04 Task 1 — `PlaylistDownloadCompletedEventSchema` added to `src/modules/server/events/schema.ts`). Webhook formatter extension to render the new event is deferred to Phase 5; for Phase 3, the bus carries the data and downstream handlers can subscribe.
 
 4. **Pinning yt-dlp via apt vs pip-into-venv vs binary?**
    - What we know: D-10 leaves this to Claude. The repo already has a Python venv (`scraper/.venv/`) with spotifyscraper installed.
    - What's unclear: which is smallest image diff + easiest periodic bump.
-   - Recommendation: **Add `yt-dlp==2026.3.17` to `scraper/requirements.txt`.** Reuses existing venv; one-line change in two Dockerfiles; binary lands at `/app/scraper/.venv/bin/yt-dlp`. Set `YT_DLP_BIN=/app/scraper/.venv/bin/yt-dlp` in docker-compose. Image size impact: ~10MB additional Python deps + the yt-dlp module itself (~3MB) — negligible.
+   - **RESOLVED:** `yt-dlp==2026.3.17` added to `scraper/requirements.txt` (locked by plan 03-01). Reuses existing venv; one-line change in two Dockerfiles; binary lands at `/app/scraper/.venv/bin/yt-dlp`. `YT_DLP_BIN` env var resolves to this path in docker-compose; PATH fallback handles host dev.
 
 5. **Is "tag failure should leave track in `downloaded` state vs `failed` state" the right trade-off?**
    - What we know: The skeleton above marks `downloaded` even when tagging fails (file is on disk; ID3 frames missing). This is a defensible choice but not specified in CONTEXT.
    - What's unclear: User's preference. If tag failure → `failed`, the file becomes orphaned (D-15 skip-if-exists will skip it next time, never re-tagging).
-   - Recommendation: **Mark as `downloaded` with a logged warning. The file is on disk and playable; missing ID3 is a quality issue, not a data-loss issue.** The user can manually retry via Phase 5's TRACK-04 button to re-tag.
+   - **RESOLVED:** Tag failure → `state=downloaded` with a logged warning (locked by plan 03-04 Task 3). The file is on disk and playable; missing ID3 is a quality issue, not a data-loss issue. The user can manually retry via Phase 5's TRACK-04 button to re-tag.
 
 ## Environment Availability
 
