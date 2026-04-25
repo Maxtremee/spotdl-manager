@@ -8,6 +8,13 @@
       "when": 1777019792534,
       "tag": "0000_tranquil_squadron_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777143362580,
+      "tag": "0001_condemned_black_widow",
+      "breakpoints": true
     }
   ]
 }
