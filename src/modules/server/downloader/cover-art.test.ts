@@ -14,7 +14,9 @@ function mockResponse(
 		status,
 		headers: {
 			get(name: string) {
-				if (name.toLowerCase() === "content-type") return contentType;
+				if (name.toLowerCase() === "content-type") {
+					return contentType;
+				}
 				return null;
 			},
 		},
@@ -48,7 +50,10 @@ describe("fetchCoverArt", () => {
 			mockResponse(true, 200, "image/jpeg", imgBytes),
 		);
 
-		const result = await fetchCoverArt("https://example.com/cover.jpg", noopLog);
+		const result = await fetchCoverArt(
+			"https://example.com/cover.jpg",
+			noopLog,
+		);
 		expect(result).not.toBeNull();
 		expect(result?.mime).toBe("image/jpeg");
 		expect(result?.buffer.length).toBe(100);
@@ -60,7 +65,10 @@ describe("fetchCoverArt", () => {
 			mockResponse(true, 200, "image/png", imgBytes),
 		);
 
-		const result = await fetchCoverArt("https://example.com/cover.png", noopLog);
+		const result = await fetchCoverArt(
+			"https://example.com/cover.png",
+			noopLog,
+		);
 		expect(result).not.toBeNull();
 		expect(result?.mime).toBe("image/png");
 	});
@@ -82,13 +90,19 @@ describe("fetchCoverArt", () => {
 			mockResponse(false, 404, "text/html", new Uint8Array(0)),
 		);
 
-		const result = await fetchCoverArt("https://example.com/missing.jpg", noopLog);
+		const result = await fetchCoverArt(
+			"https://example.com/missing.jpg",
+			noopLog,
+		);
 		expect(result).toBeNull();
 		expect(noopLog.warn).toHaveBeenCalled();
 	});
 
 	it("http:// URL rejected (T-3-04 SSRF guard) — fetch not called", async () => {
-		const result = await fetchCoverArt("http://evil.example.com/foo.jpg", noopLog);
+		const result = await fetchCoverArt(
+			"http://evil.example.com/foo.jpg",
+			noopLog,
+		);
 		expect(result).toBeNull();
 		expect(fetch).not.toHaveBeenCalled();
 		expect(noopLog.warn).toHaveBeenCalled();
@@ -116,7 +130,10 @@ describe("fetchCoverArt", () => {
 			mockResponse(true, 200, "text/html; charset=utf-8", new Uint8Array(10)),
 		);
 
-		const result = await fetchCoverArt("https://example.com/page.html", noopLog);
+		const result = await fetchCoverArt(
+			"https://example.com/page.html",
+			noopLog,
+		);
 		expect(result).toBeNull();
 		expect(noopLog.warn).toHaveBeenCalled();
 	});
@@ -149,10 +166,7 @@ describe("fetchCoverArt", () => {
 		});
 		vi.mocked(fetch).mockRejectedValueOnce(abortErr);
 
-		const result = await fetchCoverArt(
-			"https://example.com/slow.jpg",
-			noopLog,
-		);
+		const result = await fetchCoverArt("https://example.com/slow.jpg", noopLog);
 		expect(result).toBeNull();
 		expect(noopLog.warn).toHaveBeenCalled();
 	});
