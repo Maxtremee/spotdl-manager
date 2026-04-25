@@ -60,7 +60,7 @@ def _uri_to_track_id(uri: str) -> str:
     return uri.split(":")[-1]  # spike 001: track.id is always '' — use uri.split(':')[-1]
 
 
-def _largest_image_url(images: list) -> "str | None":
+def _largest_image_url(images: list) -> str | None:
     """Return the URL of the image with the largest width, or None for an empty list.
 
     Uses .get("width") or 0 to handle missing width keys defensively.
@@ -71,7 +71,7 @@ def _largest_image_url(images: list) -> "str | None":
     return largest.get("url")
 
 
-def _normalize(playlist: dict) -> "tuple[list[dict], str | None]":
+def _normalize(playlist: dict) -> tuple[list[dict], str | None]:
     """Normalize the spotifyscraper playlist response into the Node envelope contract.
 
     Returns a tuple of (tracks, cover_art_url) where:
