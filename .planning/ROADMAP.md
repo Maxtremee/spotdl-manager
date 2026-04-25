@@ -69,7 +69,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 03-01-PLAN.md — Foundation: schema (album + kind columns), deps (node-id3 + p-limit + slugify + yt-dlp pin), slug.ts + downloader/schema.ts (W-1 constants), default match settings seed, [BLOCKING] db:push
   - [x] 03-02-PLAN.md — YtDlpBridge (argv-form spawn wrapper for probe + download) + mocked-spawn unit suite (no_results gotcha covered)
   - [x] 03-03-PLAN.md — tagger.ts (node-id3 wrapper) + cover-art.ts (HTTPS-only fetch with size + MIME guards, T-3-04 mitigation) + fixtures + tests
-  - [ ] 03-04-PLAN.md — DownloadRepository + DownloadRunner (per-track state machine + pLimit fan-out + per-track failure isolation) + EventBus handler + plugin registration + playlist.download.completed event + D-06 lock-spans-handler test
+  - [x] 03-04-PLAN.md — DownloadRepository + DownloadRunner (per-track state machine + pLimit fan-out + per-track failure isolation) + EventBus handler + plugin registration + playlist.download.completed event + D-06 lock-spans-handler test
   - [ ] 03-05-PLAN.md — Gated DOWNLOADER_INTEGRATION=1 integration test + manual end-to-end smoke checkpoint (Success Criterion #5)
 **UI hint**: yes
 
