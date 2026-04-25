@@ -1,17 +1,22 @@
 import { copyFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import NodeID3 from "node-id3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type CoverArt, type TagInput, embedTags } from "./tagger";
+import { type CoverArt, embedTags, type TagInput } from "./tagger";
 
-const FIXTURE = path.resolve("src/modules/server/downloader/fixtures/silence.mp3");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FIXTURE = path.join(__dirname, "fixtures", "silence.mp3");
 
 describe("embedTags", () => {
 	let testFile: string;
 
 	beforeEach(async () => {
-		testFile = path.join(tmpdir(), `tagger-test-${Date.now()}-${Math.random()}.mp3`);
+		testFile = path.join(
+			tmpdir(),
+			`tagger-test-${Date.now()}-${Math.random()}.mp3`,
+		);
 		await copyFile(FIXTURE, testFile);
 	});
 
@@ -80,7 +85,11 @@ describe("embedTags", () => {
 	});
 
 	it("determinism / idempotence — second write produces same read values", () => {
-		const input: TagInput = { title: "Replay", artist: "Artist2", album: "Album2" };
+		const input: TagInput = {
+			title: "Replay",
+			artist: "Artist2",
+			album: "Album2",
+		};
 		embedTags(testFile, input);
 		embedTags(testFile, input);
 		const tags = NodeID3.read(testFile);
