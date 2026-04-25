@@ -132,6 +132,29 @@ export const SchedulerReloadEventSchema = BaseEventSchema.extend({
 });
 
 /**
+ * Phase 3 D-05: download finalization event.
+ * Emitted by DownloadRunner.run after all per-track work is settled.
+ * Carries summary counters that match the kind=download invocation row's summary JSON.
+ */
+export const PlaylistDownloadCompletedEventSchema = BaseEventSchema.extend({
+	type: z.literal("playlist.download.completed"),
+	payload: z.object({
+		playlistId: z.string(),
+		playlistName: z.string(),
+		invocationId: z.string().uuid(),
+		duration: z.number().positive(),
+		total: z.number().int().nonnegative(),
+		downloaded: z.number().int().nonnegative(),
+		matchedOnly: z.number().int().nonnegative(),
+		skippedLowConfidence: z.number().int().nonnegative(),
+		failed: z.number().int().nonnegative(),
+	}),
+});
+export type PlaylistDownloadCompletedEvent = z.infer<
+	typeof PlaylistDownloadCompletedEventSchema
+>;
+
+/**
  * Union of all event types
  */
 export const EventSchema = z.discriminatedUnion("type", [
@@ -143,6 +166,7 @@ export const EventSchema = z.discriminatedUnion("type", [
 	PlaylistUpdatedEventSchema,
 	PlaylistDeletedEventSchema,
 	SchedulerReloadEventSchema,
+	PlaylistDownloadCompletedEventSchema,
 ]);
 
 /**

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SourceRow } from "../db/schema";
 
 type MockCronInstance = {
@@ -507,5 +507,130 @@ describe("PlaylistScheduler (Phase 2 — SyncRunner delegation)", () => {
 			expect(scheduler.getScheduledCount()).toBe(3);
 			expect(Cron).toHaveBeenCalledTimes(3);
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// D-06 lock-spans-handler-chain integration test
+// Uses the REAL EventBus (not the module-level mock above) via vi.importActual.
+// ---------------------------------------------------------------------------
+
+describe("D-06 lock spans scrape→download handler chain", () => {
+	// Import the real EventBus bypassing the module-level vi.mock("../events", ...)
+	// so these tests exercise the actual await Promise.allSettled(handlers) behavior.
+	let RealEventBus: typeof import("../events/EventBus").EventBus;
+	let realGetEventBus: typeof import("../events/EventBus").getEventBus;
+
+	beforeAll(async () => {
+		const mod = await vi.importActual<typeof import("../events/EventBus")>(
+			"../events/EventBus",
+		);
+		RealEventBus = mod.EventBus;
+		realGetEventBus = mod.getEventBus;
+	});
+
+	afterEach(() => {
+		// Clear the real EventBus singleton between tests to avoid handler leakage.
+		RealEventBus.resetInstance();
+	});
+
+	it("Lock held while playlist.sync.completed handler is in-flight", async () => {
+		const bus = realGetEventBus();
+		let resolveHandler!: () => void;
+		const handlerDone = new Promise<void>((r) => {
+			resolveHandler = r;
+		});
+
+		bus.on("playlist.sync.completed", async () => {
+			await handlerDone; // simulate slow DownloadRunner
+		});
+
+		const source = createMockSource();
+
+		// Fake SyncRunner that emits playlist.sync.completed (and awaits it).
+		const fakeSyncRunner = {
+			run: async (src: SourceRow) => {
+				await bus.emit({
+					type: "playlist.sync.completed",
+					payload: {
+						playlistId: src.id,
+						playlistName: src.name,
+						invocationId: "00000000-0000-0000-0000-000000000001",
+						duration: 1,
+						exitCode: 0,
+					},
+				});
+			},
+		} as unknown as import("../scraper/SyncRunner").SyncRunner;
+
+		const d06Scheduler = new PlaylistScheduler({ syncRunner: fakeSyncRunner });
+
+		// Fire the sync — returns "triggered" immediately (fire-and-forget).
+		const result = await d06Scheduler.triggerManualSync(source);
+		expect(result).toBe("triggered");
+
+		// The lock must be held because the slow handler hasn't resolved yet.
+		// Give the microtask queue a moment to reach the handler.
+		await new Promise((r) => setTimeout(r, 10));
+		expect(d06Scheduler.isRunning(source.id)).toBe(true);
+
+		// Release the slow handler → sync pipeline completes → lock released.
+		resolveHandler();
+		await new Promise((r) => setTimeout(r, 50));
+		expect(d06Scheduler.isRunning(source.id)).toBe(false);
+	});
+
+	it("Concurrent trigger blocked while download in-flight", async () => {
+		const bus = realGetEventBus();
+		let resolveHandler!: () => void;
+		const handlerDone = new Promise<void>((r) => {
+			resolveHandler = r;
+		});
+
+		bus.on("playlist.sync.completed", async () => {
+			await handlerDone;
+		});
+
+		const source = createMockSource();
+
+		const fakeSyncRunner = {
+			run: async (src: SourceRow) => {
+				await bus.emit({
+					type: "playlist.sync.completed",
+					payload: {
+						playlistId: src.id,
+						playlistName: src.name,
+						invocationId: "00000000-0000-0000-0000-000000000002",
+						duration: 1,
+						exitCode: 0,
+					},
+				});
+			},
+		} as unknown as import("../scraper/SyncRunner").SyncRunner;
+
+		const d06Scheduler = new PlaylistScheduler({ syncRunner: fakeSyncRunner });
+
+		// First trigger — starts successfully.
+		const result1 = await d06Scheduler.triggerManualSync(source);
+		expect(result1).toBe("triggered");
+
+		// Give the pipeline a moment to reach the slow handler.
+		await new Promise((r) => setTimeout(r, 10));
+
+		// Second trigger within the delay window — guard is active, should be rejected.
+		const result2 = await d06Scheduler.triggerManualSync(source);
+		expect(result2).toBeNull();
+
+		// Release the slow handler.
+		resolveHandler();
+		await new Promise((r) => setTimeout(r, 50));
+
+		// Guard released — third trigger now accepted.
+		const result3 = await d06Scheduler.triggerManualSync(source);
+		expect(result3).toBe("triggered");
+
+		// Let the third trigger complete.
+		resolveHandler(); // no-op — handlerDone already resolved
+		await new Promise((r) => setTimeout(r, 50));
 	});
 });

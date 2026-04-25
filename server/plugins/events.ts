@@ -8,6 +8,7 @@ import {
 	registerSyncDurationWarningHandler,
 } from "../../src/modules/server/events";
 import { registerDiscordWebhookHandler } from "../../src/modules/server/webhooks";
+import { registerDownloadHandler } from "../../src/modules/server/downloader";
 import { Logger } from "../../src/logger";
 
 let initialized = false;
@@ -54,6 +55,10 @@ export default (nitroApp: NitroApp) => {
 	// Discord webhook handler (reads settings from DB on each event)
 	registerDiscordWebhookHandler(eventHandlerLogger);
 	pluginLogger.info("Discord webhook handler registered");
+
+	// Download handler — subscribes to playlist.sync.completed and kicks DownloadRunner (D-01)
+	registerDownloadHandler(eventHandlerLogger);
+	pluginLogger.info("Download handler registered");
 
 	// Example: Register failure notification handler if webhook URL is configured
 	// const webhookUrl = process.env.FAILURE_WEBHOOK_URL;
