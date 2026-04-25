@@ -1,7 +1,12 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+	DEFAULT_MATCH_SETTINGS,
+	MATCH_SETTINGS_KEY,
+} from "../downloader/schema";
 import { getDb } from "./index";
 import {
+	globalSettings,
 	invocations,
 	type NewInvocationRow,
 	type NewSourceRow,
@@ -126,6 +131,18 @@ status: success
 	console.log(
 		`Invocations seeded. Attempted ${seedInvocations.length} inserts. Total invocations in DB: ${totalInvocations}.`,
 	);
+
+	// Phase 3 D-16: default match settings (tolerance + parallel).
+	// onConflictDoNothing — re-running seed must NOT clobber user-tuned values.
+	db.insert(globalSettings)
+		.values({
+			key: MATCH_SETTINGS_KEY,
+			value: JSON.stringify(DEFAULT_MATCH_SETTINGS),
+			updatedAt: now,
+		})
+		.onConflictDoNothing({ target: globalSettings.key })
+		.run();
+	console.log("Default match settings seeded.");
 }
 
 main().catch((error) => {
