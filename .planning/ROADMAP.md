@@ -65,7 +65,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The sync runs 3 yt-dlp downloads in parallel by default; a global setting lets the user set this to 2 or 4 and also adjust the duration tolerance
   4. yt-dlp failures are recorded on the track row with exit code and the tail of stderr in `failure_reason`; the invocation row still completes with per-track counts in its summary
   5. A complete sync on a single configured playlist ends with at least one real tagged MP3 on disk for a known-good track
-**Plans**: TBD
+**Plans**: 5 plans
+  - [ ] 03-01-PLAN.md — Foundation: schema (album + kind columns), deps (node-id3 + p-limit + slugify + yt-dlp pin), slug.ts + downloader/schema.ts (W-1 constants), default match settings seed, [BLOCKING] db:push
+  - [ ] 03-02-PLAN.md — YtDlpBridge (argv-form spawn wrapper for probe + download) + mocked-spawn unit suite (no_results gotcha covered)
+  - [ ] 03-03-PLAN.md — tagger.ts (node-id3 wrapper) + cover-art.ts (HTTPS-only fetch with size + MIME guards, T-3-04 mitigation) + fixtures + tests
+  - [ ] 03-04-PLAN.md — DownloadRepository + DownloadRunner (per-track state machine + pLimit fan-out + per-track failure isolation) + EventBus handler + plugin registration + playlist.download.completed event + D-06 lock-spans-handler test
+  - [ ] 03-05-PLAN.md — Gated DOWNLOADER_INTEGRATION=1 integration test + manual end-to-end smoke checkpoint (Success Criterion #5)
 **UI hint**: yes
 
 ### Phase 4: Album support & incremental rescrape
@@ -112,7 +117,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Schema reset & spotdl removal | 5/5 | Complete | 2026-04-24 |
 | 2. Spotify metadata via spotifyscraper | 6/6 | Complete | 2026-04-24 |
-| 3. Match + download slice (end-to-end MP3) | 0/TBD | Not started | - |
+| 3. Match + download slice (end-to-end MP3) | 0/5 | Planned | - |
 | 4. Album support & incremental rescrape | 0/TBD | Not started | - |
 | 5. Per-track UI & retry model | 0/TBD | Not started | - |
 | 6. Docker image & deployment | 0/TBD | Not started | - |
@@ -121,3 +126,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 *Roadmap created: 2026-04-23*
 *Restructured 2026-04-24: pivot from Playwright session to spotifyscraper (per spikes 001/002). Removed old Phase 2 (Spotify session) and old Phase 6 (session-expiry surfaces). Renumbered old Phase 7 → new Phase 6.*
 *Phase 2 planned: 2026-04-24 — 6 plans across 5 waves (01 Docker+Python | 02 schemas, parallel with 01 | 03 bridge | 04 runner+repo | 05 scheduler+UI+webhook | 06 integration test + manual smoke)*
+*Phase 3 planned: 2026-04-25 — 5 plans across 4 waves (01 foundation/schema/deps/slug | 02 YtDlpBridge, parallel with 03 | 03 tagger+cover-art, parallel with 02 | 04 DownloadRunner+repo+handler+plugin+D-06 test | 05 gated integration test + HUMAN-UAT smoke)*
