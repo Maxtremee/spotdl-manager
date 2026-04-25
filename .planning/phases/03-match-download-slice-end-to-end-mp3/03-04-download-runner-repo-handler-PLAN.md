@@ -26,6 +26,7 @@ must_haves:
     - "MATCH-04: tracks with state=matched skip the probe call and reuse the persisted yt_video_id"
     - "Out-of-tolerance probe results transition to skipped_low_confidence with the duration delta in failure_reason (MATCH-03)"
     - "yt-dlp writes directly to data/music/<source-slug>/<artist> - <title>.mp3 (sanitized via slug.ts); existing files are skipped (D-15)"
+    - "DownloadRunner.run pre-flights yt-dlp + ffmpeg binaries before any track work; on ENOENT it finalizes the invocation row with summary.failure_reason='ytdlp_missing' or 'ffmpeg_missing' and emits playlist.download.completed without spawning per-track work (RESEARCH Pitfall #3)"
     - "fs.mkdir({recursive:true}) creates the source-slug directory lazily before the first track downloads"
     - "Path resolution checks resolved path stays under data/music/<slug>/ (T-3-02 path traversal mitigation)"
     - "playlist.download.completed event is emitted at the end of every DownloadRunner.run with download counters payload"
@@ -261,7 +262,7 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
     3. Run `pnpm test src/modules/server/events/` to confirm existing event-bus tests still pass with the extended union.
   </action>
   <verify>
-    <automated>grep -q 'PlaylistDownloadCompletedEventSchema' src/modules/server/events/schema.ts &amp;&amp; grep -q '"playlist.download.completed"' src/modules/server/events/schema.ts &amp;&amp; grep -q 'matchedOnly' src/modules/server/events/schema.ts &amp;&amp; grep -q 'skippedLowConfidence' src/modules/server/events/schema.ts &amp;&amp; grep -q 'PlaylistDownloadCompletedEventSchema' src/modules/server/events/schema.ts | wc -l | awk '$1 &gt;= 2 {exit 0} {exit 1}' &amp;&amp; pnpm typecheck &amp;&amp; pnpm test src/modules/server/events/</automated>
+    <automated>grep -q 'PlaylistDownloadCompletedEventSchema' src/modules/server/events/schema.ts &amp;&amp; grep -q '"playlist.download.completed"' src/modules/server/events/schema.ts &amp;&amp; grep -q 'matchedOnly' src/modules/server/events/schema.ts &amp;&amp; grep -q 'skippedLowConfidence' src/modules/server/events/schema.ts &amp;&amp; [ "$(grep -c 'PlaylistDownloadCompletedEventSchema' src/modules/server/events/schema.ts)" -ge 2 ] &amp;&amp; pnpm typecheck &amp;&amp; pnpm test src/modules/server/events/</automated>
   </verify>
   <acceptance_criteria>
     - `grep -q 'PlaylistDownloadCompletedEventSchema' src/modules/server/events/schema.ts` exits 0
@@ -401,7 +402,7 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
     - src/modules/server/downloader/schema.ts (Plan 03-01 — YTDLP_CRASH_PREFIX W-1, MatchSettings types)
     - src/modules/server/invocation/repository.ts (InvocationRepository.create + .update signatures)
     - .planning/phases/03-match-download-slice-end-to-end-mp3/03-PATTERNS.md (sections "DownloadRunner.ts" — full state machine pattern + "DownloadRunner.test.ts" — 10 test targets)
-    - .planning/phases/03-match-download-slice-end-to-end-mp3/03-RESEARCH.md (Code Examples §DownloadRunner skeleton; Pitfall #6 EventBus await; Pitfall #7 idempotent skip; Pitfall #8 cover-art non-fatal)
+    - .planning/phases/03-match-download-slice-end-to-end-mp3/03-RESEARCH.md (Code Examples §DownloadRunner skeleton; Pitfall #3 ffmpeg/yt-dlp pre-flight at runner start lines 546-559; Pitfall #6 EventBus await; Pitfall #7 idempotent skip; Pitfall #8 cover-art non-fatal)
     - .planning/phases/03-match-download-slice-end-to-end-mp3/03-CONTEXT.md (D-01..D-07, D-11, D-15)
   </read_first>
   <behavior>
@@ -444,23 +445,31 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
     ```
 
     run(source) lifecycle:
-    1. Generate `invocationId = randomUUID()`. Capture `startedAt = clock()`.
-    2. Wrap entire body in outer try/catch (Pitfall 8 from SyncRunner — always emit a terminal event/finalize).
-    3. Read `tracks = await repo.getTracksToProcess(source.id)`.
-    4. If `tracks.length === 0`:
+    1. **Binary pre-flight (RESEARCH Pitfall #3 — runner-level guard against mass per-track failure when yt-dlp or ffmpeg is missing from PATH/env):**
+       - Resolve `ytDlpBin = env.YT_DLP_BIN ?? "yt-dlp"` and the literal `"ffmpeg"` (no env override; expected on PATH per Dockerfile line 38).
+       - For each binary, run a one-shot spawn (`<bin> --version` for yt-dlp, `<bin> -version` for ffmpeg) with a 5s timeout. If the bin path is absolute (starts with `/`), additionally `fs.access(bin, fs.constants.X_OK)` for a fast-path check before the spawn.
+       - If yt-dlp probe fails (ENOENT, non-zero exit, or timeout): generate `invocationId`, create the kind=download invocation row, finalize it immediately with `status="failed", exitCode=127, summary={ failure_reason: "ytdlp_missing", error: <stderr or err.message>, total: tracks.length, downloaded: 0, matched_only: 0, skipped_low_confidence: 0, failed: 0 }`, emit `playlist.download.completed` with the same counters + `failed: tracks.length` (so observers see the run as fully failed), and return. NO track is touched.
+       - If ffmpeg probe fails: same shape, with `summary.failure_reason="ffmpeg_missing"`.
+       - Pre-flight runs BEFORE step 4's getTracksToProcess read so we don't waste a DB roundtrip on a doomed run, EXCEPT for the counters payload — implementer may either (a) read tracks first to get `total`, then pre-flight, then early-finalize with `failed: total` if pre-flight fails, OR (b) pre-flight first and emit with `total: 0`. Pick (a) — it gives observers the more honest "N tracks would have been attempted" signal.
+       - Implementation note: factor into a helper `private async preflightBinaries(): Promise<{ ok: true } | { ok: false; reason: "ytdlp_missing" | "ffmpeg_missing"; error: string }>` so the unit test can stub it via DI (add `preflight?: () => Promise<...>` to `DownloadRunnerDeps` for testability) OR via overriding `ytDlpBin` to a non-existent path and letting the real spawn fail. DI form is preferred — matches SyncRunner's testability patterns.
+    2. Generate `invocationId = randomUUID()`. Capture `startedAt = clock()`.
+    3. Wrap entire body in outer try/catch (Pitfall 8 from SyncRunner — always emit a terminal event/finalize).
+    4. Read `tracks = await repo.getTracksToProcess(source.id)`.
+    5. If `tracks.length === 0`:
        - Log info "DownloadRunner: zero tracks to process — exit cleanly"
        - Do NOT create an invocation row, do NOT emit playlist.download.completed (no work was done).
        - Return early.
-    5. Read `settings = await repo.getMatchSettings()` and snapshot tolerance + parallel.
-    6. Create invocation row via `invocationRepo.create({ id: invocationId, playlistId: source.id, startedAt, status: "running", kind: "download" })`.
-    7. Compute `slug = sourceSlug(source.name)`, `dir = path.resolve(MUSIC_ROOT, slug)`. Verify `dir.startsWith(path.resolve(MUSIC_ROOT) + path.sep)` OR `dir === path.resolve(MUSIC_ROOT)` — defense-in-depth path-traversal guard (T-3-02). If guard fails, throw with a clear error message that the outer catch will route through finalizeFailure.
-    8. `await fs.mkdir(dir, { recursive: true })`.
-    9. Create `limit = pLimit(settings.parallel)`. Map tracks to `limit(() => this.processTrack(track, source, dir, settings.tolerance_seconds))`.
-    10. `const results = await Promise.allSettled(promises)`.
-    11. Aggregate counters from results: `{ total, downloaded, matched_only, skipped_low_confidence, failed }`. (matched_only counts tracks that ended in 'matched' state — typically zero unless a runner crash interrupted between markMatched and markDownloaded; in normal flow nearly all accepted tracks reach 'downloaded'.)
-    12. Update invocation row: `invocationRepo.update(invocationId, { finishedAt: clock(), exitCode: 0, status: "success", summary: JSON.stringify(counters) })`.
-    13. Emit `playlist.download.completed` with payload mapping snake_case counters to camelCase event keys.
-    14. Outer catch: log error, attempt to update invocation row to status='failed' (if it was created) with summary `{ failure_reason: "ytdlp_crash", error: <message> }`. Never re-throw.
+       - Note: zero-tracks check happens AFTER pre-flight per the (a) ordering above — but if pre-flight already early-finalized for missing binary, control already returned. So this step only executes when binaries are present.
+    6. Read `settings = await repo.getMatchSettings()` and snapshot tolerance + parallel.
+    7. Create invocation row via `invocationRepo.create({ id: invocationId, playlistId: source.id, startedAt, status: "running", kind: "download" })`.
+    8. Compute `slug = sourceSlug(source.name)`, `dir = path.resolve(MUSIC_ROOT, slug)`. Verify `dir.startsWith(path.resolve(MUSIC_ROOT) + path.sep)` OR `dir === path.resolve(MUSIC_ROOT)` — defense-in-depth path-traversal guard (T-3-02). If guard fails, throw with a clear error message that the outer catch will route through finalizeFailure.
+    9. `await fs.mkdir(dir, { recursive: true })`.
+    10. Create `limit = pLimit(settings.parallel)`. Map tracks to `limit(() => this.processTrack(track, source, dir, settings.tolerance_seconds))`.
+    11. `const results = await Promise.allSettled(promises)`.
+    12. Aggregate counters from results: `{ total, downloaded, matched_only, skipped_low_confidence, failed }`. (matched_only counts tracks that ended in 'matched' state — typically zero unless a runner crash interrupted between markMatched and markDownloaded; in normal flow nearly all accepted tracks reach 'downloaded'.)
+    13. Update invocation row: `invocationRepo.update(invocationId, { finishedAt: clock(), exitCode: 0, status: "success", summary: JSON.stringify(counters) })`.
+    14. Emit `playlist.download.completed` with payload mapping snake_case counters to camelCase event keys.
+    15. Outer catch: log error, attempt to update invocation row to status='failed' (if it was created) with summary `{ failure_reason: "ytdlp_crash", error: <message> }`. Never re-throw.
 
     processTrack(track, source, dir, toleranceSeconds) returns one of: `"downloaded" | "skipped_low_confidence" | "failed" | "matched_only"`:
     1. Compute `targetPath = path.join(dir, safeFilename(track.artist, track.title))`.
@@ -518,11 +527,49 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
     10. **W-1 reclassification** — bridge.download returns error with message starting with YTDLP_CRASH_PREFIX → markFailed called with errorType="ytdlp_crash" (not "download_error" even if that was the type field).
     11. **Path traversal blocked (T-3-02)** — track with artist="../etc" (after slug sanitization this should be impossible, but defense-in-depth) — assert that the resolved target path stays under MUSIC_ROOT or the track is marked failed without invoking yt-dlp.
     12. **DOWNLOAD-04 — pLimit(N)** — assert pLimit was constructed with settings.parallel value. Use a tiny test double: 5 tracks, settings.parallel=2, count concurrent in-flight calls — never exceeds 2 at once.
+    13. **Pre-flight yt-dlp missing (RESEARCH Pitfall #3)** — DI inject a `preflight` function that resolves to `{ ok: false, reason: "ytdlp_missing", error: "spawn yt-dlp ENOENT" }`. Run with 3 pending tracks. Assert: (a) `bridge.probe` and `bridge.download` are NEVER called (zero spawns); (b) `repo.markMatched` / `repo.markDownloaded` / `repo.markFailed` are NEVER called per-track; (c) `invocationRepo.create` is called with `kind: "download"`; (d) `invocationRepo.update` is called with `status: "failed"`, `exitCode: 127`, and `summary` containing `failure_reason: "ytdlp_missing"`; (e) `emitSpy` saw exactly one `playlist.download.completed` event with payload `{ total: 3, downloaded: 0, matchedOnly: 0, skippedLowConfidence: 0, failed: 3 }`.
+    14. **Pre-flight ffmpeg missing (RESEARCH Pitfall #3)** — Same shape as test 13 but with `{ ok: false, reason: "ffmpeg_missing", error: "spawn ffmpeg ENOENT" }`. Assert summary.failure_reason="ffmpeg_missing"; same zero-spawn / failed: tracks.length expectations.
   </behavior>
   <action>
     1. Create `src/modules/server/downloader/DownloadRunner.ts` per the <behavior> spec. Mirror SyncRunner.ts's class shell + DI constructor + outer try/catch shape; replace the loop body with the pLimit fan-out + per-track state machine.
     2. Use `getEventBus()` for the event emission (not injected — mirrors SyncRunner.ts at line 89).
-    3. Top-of-file docblock: explain D-01 (split runner), D-02 (state machine), D-03 (per-track isolation), D-15 (skip-if-exists), and the W-1 reclassification of YTDLP_CRASH_PREFIX prefixes.
+    3. Top-of-file docblock: explain D-01 (split runner), D-02 (state machine), D-03 (per-track isolation), D-15 (skip-if-exists), the W-1 reclassification of YTDLP_CRASH_PREFIX prefixes, AND RESEARCH Pitfall #3 (binary pre-flight: yt-dlp + ffmpeg verified at run() start before any track work).
+    3a. **Implement the binary pre-flight** as the FIRST observable step inside `run(source)`. Pattern (documented choice — hybrid `fs.access` + spawn):
+       ```typescript
+       // Default to spawn-based probe because it works for both bare-name (PATH-resolved) and absolute-path
+       // configurations of YT_DLP_BIN. fs.access alone cannot resolve PATH and would false-negative for the
+       // common dev case where YT_DLP_BIN is unset and "yt-dlp" is on $PATH. We add a fast-path fs.access
+       // check ONLY when the configured bin is absolute (starts with "/") — this matches the cheap-check
+       // recommendation in RESEARCH Pitfall #3 line 554 without breaking PATH resolution.
+       private async preflightBinaries(): Promise<{ ok: true } | { ok: false; reason: "ytdlp_missing" | "ffmpeg_missing"; error: string }> {
+           const checks: Array<{ bin: string; versionFlag: string; reason: "ytdlp_missing" | "ffmpeg_missing" }> = [
+               { bin: env.YT_DLP_BIN ?? "yt-dlp", versionFlag: "--version", reason: "ytdlp_missing" },
+               { bin: "ffmpeg",                   versionFlag: "-version",  reason: "ffmpeg_missing" },
+           ];
+           for (const { bin, versionFlag, reason } of checks) {
+               // Fast-path: if the bin is absolute, fs.access is cheaper than a spawn round-trip.
+               if (path.isAbsolute(bin)) {
+                   try {
+                       await fs.access(bin, fsConstants.X_OK);
+                   } catch (err) {
+                       return { ok: false, reason, error: (err as Error).message };
+                   }
+               }
+               // Always finish with a real spawn — confirms the binary actually executes (not just exists).
+               // Use a 5s timeout so a hung spawn doesn't block the runner forever.
+               try {
+                   await spawnVersionCheck(bin, versionFlag, 5000);
+               } catch (err) {
+                   return { ok: false, reason, error: (err as Error).message };
+               }
+           }
+           return { ok: true };
+       }
+       ```
+       - Implement `spawnVersionCheck(bin, flag, timeoutMs)` as a thin Promise wrapper around `child_process.spawn` (argv form, NOT `shell: true`) that resolves on exit code 0 within timeout, rejects on non-zero / ENOENT / timeout.
+       - Wire DI: add `preflight?: () => Promise<PreflightResult>` to `DownloadRunnerDeps`. Default to `this.preflightBinaries.bind(this)`. Tests inject a stub.
+       - **Order in `run(source)`:** (per (a) ordering chosen in <behavior>) read `tracks = await repo.getTracksToProcess(source.id)` first to capture `total`, then call `preflight = await this.preflight()`. If `preflight.ok === false`, generate invocationId, create kind=download row, finalize it with status=failed/exitCode=127/summary.failure_reason=preflight.reason, emit `playlist.download.completed` with `{ total: tracks.length, downloaded: 0, matchedOnly: 0, skippedLowConfidence: 0, failed: tracks.length }`, return. No track loop runs.
+       - **Empty tracks short-circuit interaction:** if tracks.length === 0, the original "skip everything" early return wins (no invocation row, no event) — pre-flight failure on a zero-track source still doesn't emit. This is fine because there's nothing to fail.
     4. Add the path-traversal guard (T-3-02) explicitly — comment it as "T-3-02 defense-in-depth: even though slug+filename sanitize, double-check the resolved path is under MUSIC_ROOT before any fs operation".
     5. Create `src/modules/server/downloader/DownloadRunner.test.ts` based on `scraper/SyncRunner.test.ts`. Module-level `vi.mock("../events", () => ({ getEventBus: () => ({ emit: emitSpy }) }))`. Build factories:
        - `fakeBridge({ probeResults: Map, downloadResults: Map })` — returns mocks for probe/download keyed by query/videoId
@@ -530,6 +577,7 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
        - `fakeInvocationRepo()` — same shape as the existing one in SyncRunner.test.ts
        - `fakeCoverArtFetcher()` — returns a mock that resolves to `null` (most tests) or `{ buffer, mime }` (one happy-path test)
        - `fakeTagger()` — vi.fn() that returns undefined; one test makes it throw
+       - `fakePreflight(result)` — returns a `vi.fn()` resolving to `{ ok: true }` by default; tests 13 + 14 inject `{ ok: false, reason: "ytdlp_missing"|"ffmpeg_missing", error }` to drive the pre-flight failure paths
        - `sourceRow(overrides)` factory copied from SyncRunner.test.ts
        - `trackRow(overrides)` factory new — with sensible defaults including `state: "pending"`, `album: null`, etc.
     6. For Test 12 (DOWNLOAD-04 concurrency assertion), build a probe mock that increments a counter in-flight and decrements when resolved; assert max in-flight never exceeded settings.parallel.
@@ -538,7 +586,7 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
     9. Run `pnpm typecheck` and `pnpm check`.
   </action>
   <verify>
-    <automated>test -f src/modules/server/downloader/DownloadRunner.ts &amp;&amp; test -f src/modules/server/downloader/DownloadRunner.test.ts &amp;&amp; grep -q 'export class DownloadRunner' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'pLimit(settings.parallel)' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'YTDLP_CRASH_PREFIX' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'fs.access(targetPath)' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q '"playlist.download.completed"' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'kind: "download"' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'fs.mkdir.*recursive' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'safeFilename\|sourceSlug' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'embedTags' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'fetchCoverArt' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'startsWith.*MUSIC_ROOT\|startsWith.*resolve' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q './DownloadRunner' src/modules/server/downloader/index.ts &amp;&amp; pnpm test src/modules/server/downloader/DownloadRunner.test.ts &amp;&amp; pnpm typecheck &amp;&amp; pnpm check</automated>
+    <automated>test -f src/modules/server/downloader/DownloadRunner.ts &amp;&amp; test -f src/modules/server/downloader/DownloadRunner.test.ts &amp;&amp; grep -q 'export class DownloadRunner' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'pLimit(settings.parallel)' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'YTDLP_CRASH_PREFIX' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'fs.access(targetPath)' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q '"playlist.download.completed"' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'kind: "download"' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'fs.mkdir.*recursive' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'safeFilename\|sourceSlug' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'embedTags' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'fetchCoverArt' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'startsWith.*MUSIC_ROOT\|startsWith.*resolve' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'preflight\|preflightBinaries' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'ytdlp_missing' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q 'ffmpeg_missing' src/modules/server/downloader/DownloadRunner.ts &amp;&amp; grep -q './DownloadRunner' src/modules/server/downloader/index.ts &amp;&amp; pnpm test src/modules/server/downloader/DownloadRunner.test.ts &amp;&amp; pnpm typecheck &amp;&amp; pnpm check</automated>
   </verify>
   <acceptance_criteria>
     - `test -f src/modules/server/downloader/DownloadRunner.ts` exits 0
@@ -559,12 +607,18 @@ export function registerDiscordWebhookHandler(logger = Logger.get("...")): () =>
     - `grep -q 'tolerance_seconds\|toleranceSeconds' src/modules/server/downloader/DownloadRunner.ts` exits 0 (MATCH-02)
     - `grep -q 'skipped_low_confidence\|markSkippedLowConfidence' src/modules/server/downloader/DownloadRunner.ts` exits 0 (MATCH-03)
     - `grep -q './DownloadRunner' src/modules/server/downloader/index.ts` exits 0
-    - `grep -c 'it(' src/modules/server/downloader/DownloadRunner.test.ts` returns at least 12
+    - `grep -q 'preflightBinaries\|preflight' src/modules/server/downloader/DownloadRunner.ts` exits 0 (RESEARCH Pitfall #3 — runner-level pre-flight present)
+    - `grep -q 'ytdlp_missing' src/modules/server/downloader/DownloadRunner.ts` exits 0 (typed pre-flight failure reason)
+    - `grep -q 'ffmpeg_missing' src/modules/server/downloader/DownloadRunner.ts` exits 0 (typed pre-flight failure reason)
+    - `grep -q 'spawnVersionCheck\|--version\|-version' src/modules/server/downloader/DownloadRunner.ts` exits 0 (one-shot version probe is wired)
+    - DownloadRunner.test.ts contains a unit test that injects a failing pre-flight and asserts: zero per-track spawns, invocation finalized with `summary.failure_reason="ytdlp_missing"`, event emitted with `failed: tracks.length`. (Test #13 in <behavior>.)
+    - DownloadRunner.test.ts contains a unit test that injects a failing pre-flight with reason="ffmpeg_missing" and asserts the same shape with `failure_reason="ffmpeg_missing"`. (Test #14 in <behavior>.)
+    - `grep -c 'it(' src/modules/server/downloader/DownloadRunner.test.ts` returns at least 14 (was 12; +2 for pre-flight tests)
     - `pnpm test src/modules/server/downloader/DownloadRunner.test.ts` exits 0
     - `pnpm typecheck` exits 0
     - `pnpm check` exits 0
   </acceptance_criteria>
-  <done>DownloadRunner orchestrates the per-source pipeline end-to-end with full state machine + per-track failure isolation + W-1 reclassification + path-traversal guard. 12+ tests cover MATCH-01..04, DOWNLOAD-01..05, D-15 idempotent skip, D-03 isolation, T-3-02 path traversal.</done>
+  <done>DownloadRunner orchestrates the per-source pipeline end-to-end with full state machine + per-track failure isolation + W-1 reclassification + path-traversal guard + RESEARCH Pitfall #3 binary pre-flight (yt-dlp + ffmpeg verified at run() start; missing binary fast-fails the invocation with a typed `summary.failure_reason` instead of mass-failing every track). 14+ tests cover MATCH-01..04, DOWNLOAD-01..05, D-15 idempotent skip, D-03 isolation, T-3-02 path traversal, and Pitfall #3 pre-flight (ytdlp_missing + ffmpeg_missing branches).</done>
 </task>
 
 <task type="auto">
