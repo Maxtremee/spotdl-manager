@@ -72,6 +72,9 @@ RUN python3 -m venv /app/scraper/.venv \
     && /app/scraper/.venv/bin/pip install --no-cache-dir -r /app/scraper/requirements.txt \
     && chown -R node:node /app/scraper
 
+# Phase 3 D-10: pin yt-dlp binary path for the Node runtime (PATH-resolved fallback in dev).
+ENV YT_DLP_BIN=/app/scraper/.venv/bin/yt-dlp
+
 # Switch to non-root user
 USER node
 

@@ -1,1 +1,2 @@
 spotifyscraper==2.1.5
+yt-dlp==2026.3.17
